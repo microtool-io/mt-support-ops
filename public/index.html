@@ -10,15 +10,33 @@
 </head>
 <body>
   <aside id="sidebar" aria-label="Sidebar">
-    <button class="sidebar-toggle" type="button" aria-controls="sidebar"
-            aria-expanded="true" aria-label="Collapse sidebar" title="Collapse sidebar">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-           stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <rect x="2.5" y="4" width="19" height="16" rx="2.5"/>
-        <path d="M8.5 4v16"/>
-        <path class="toggle-chevron" d="m16 9-3 3 3 3"/>
-      </svg>
-    </button>
+    <div class="sidebar-header">
+      <div class="sidebar-brand">
+        <svg viewBox="34 70 222 144" width="38" height="25" role="img" aria-label="Microtool">
+          <path transform="translate(-2 -10)" fill="currentColor" stroke="currentColor"
+                stroke-width="4" stroke-linejoin="round"
+                d="M44 188 Q40 188 40 184 V116 Q40 84 72 84 H104
+                   Q120 84 128 100 Q136 84 152 84 H184 Q216 84 216 116
+                   V132 H250 Q254 132 254 136 V160 Q254 164 250 164
+                   H216 V180 Q216 188 224 188 H240 Q244 188 244 192
+                   V216 Q244 220 240 220 H220 Q184 220 184 184
+                   V128 Q184 116 172 116 H156 Q144 116 144 128
+                   V184 Q144 188 140 188 H116 Q112 188 112 184
+                   V128 Q112 116 100 116 H84 Q72 116 72 128
+                   V184 Q72 188 68 188 H44 Z"/>
+        </svg>
+        <span>CS Ops</span>
+      </div>
+      <button class="sidebar-toggle" type="button" aria-controls="sidebar"
+              aria-expanded="true" aria-label="Collapse sidebar" title="Collapse sidebar">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+             stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2.5" y="4" width="19" height="16" rx="2.5"/>
+          <path d="M8.5 4v16"/>
+          <path class="toggle-chevron" d="m16 9-3 3 3 3"/>
+        </svg>
+      </button>
+    </div>
   </aside>
   <main aria-label="Workspace"></main>
 </body>
