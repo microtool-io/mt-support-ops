@@ -6,9 +6,20 @@
   <title>mt-support-ops</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="style.css">
+  <script src="sidebar.js" defer></script>
 </head>
 <body>
-  <aside aria-label="Sidebar"></aside>
+  <aside id="sidebar" aria-label="Sidebar">
+    <button class="sidebar-toggle" type="button" aria-controls="sidebar"
+            aria-expanded="true" aria-label="Collapse sidebar" title="Collapse sidebar">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+           stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="2.5" y="4" width="19" height="16" rx="2.5"/>
+        <path d="M8.5 4v16"/>
+        <path class="toggle-chevron" d="m16 9-3 3 3 3"/>
+      </svg>
+    </button>
+  </aside>
   <main aria-label="Workspace"></main>
 </body>
 </html>

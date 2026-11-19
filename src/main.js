@@ -3,7 +3,8 @@ import { createServer } from 'node:http';
 
 const files = new Map([
   ['/', ['text/html; charset=utf-8', readFileSync(new URL('../public/index.html', import.meta.url))]],
-  ['/style.css', ['text/css; charset=utf-8', readFileSync(new URL('../public/style.css', import.meta.url))]]
+  ['/style.css', ['text/css; charset=utf-8', readFileSync(new URL('../public/style.css', import.meta.url))]],
+  ['/sidebar.js', ['text/javascript; charset=utf-8', readFileSync(new URL('../public/sidebar.js', import.meta.url))]]
 ]);
 
 const port = Number(process.env.PORT || 4318);

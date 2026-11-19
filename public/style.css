@@ -1,12 +1,64 @@
+:root {
+  --motion-collapse-expand: 240ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-collapse-expand: 0s linear;
+  }
+}
+
 body {
   display: grid;
-  grid-template-columns: min(220px, 30vw) 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   min-height: 100dvh;
   margin: 0;
   background: #141414;
 }
 
 aside {
+  box-sizing: border-box;
+  inline-size: clamp(56px, 35vw, 252px);
+  padding: 8px;
   background: #1a1a1a;
   border-right: 1px solid #303030;
+  transition: inline-size var(--motion-collapse-expand);
+}
+
+aside:has(.sidebar-toggle[aria-expanded="false"]) {
+  inline-size: 56px;
+}
+
+.sidebar-toggle {
+  display: grid;
+  place-items: center;
+  inline-size: 38px;
+  block-size: 38px;
+  margin-inline-start: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #bcbcbc;
+  cursor: pointer;
+}
+
+.sidebar-toggle:hover, .sidebar-toggle:focus-visible {
+  background: #282828;
+  color: #ebebeb;
+}
+
+.sidebar-toggle:focus-visible {
+  outline: 2px solid #ebebeb;
+  outline-offset: 2px;
+}
+
+.toggle-chevron {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform var(--motion-collapse-expand);
+}
+
+.sidebar-toggle[aria-expanded="false"] .toggle-chevron {
+  transform: scaleX(-1);
 }
