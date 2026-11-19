@@ -1,5 +1,0 @@
-Instrument Sans, variable upright 400–700. Downloaded 2026-10-31 from Google Fonts.
-https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400..700&display=swap
-instrument-sans-latin-ext.woff2: https://fonts.gstatic.com/s/instrumentsans/v4/pxiTypc9vsFDm051Uf6KVwgkfoSxQ0GsQv8ToedPibnr0She1YmV.woff2
-instrument-sans-latin.woff2: https://fonts.gstatic.com/s/instrumentsans/v4/pxiTypc9vsFDm051Uf6KVwgkfoSxQ0GsQv8ToedPibnr0SZe1Q.woff2
-License: https://raw.githubusercontent.com/google/fonts/main/ofl/instrumentsans/OFL.txt

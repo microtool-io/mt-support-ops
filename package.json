@@ -1,13 +1,12 @@
 {
   "name": "mt-support-ops",
-  "description": "A local, department-based workspace for B2B customer support operations.",
+  "description": "An empty sidebar and workspace.",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "license": "MIT",
   "engines": { "node": ">=24.14.0 <25" },
   "scripts": {
-    "start": "node --env-file-if-exists=.env.local src/main.js",
-    "test": "node --test"
+    "start": "node src/main.js"
   }
 }
