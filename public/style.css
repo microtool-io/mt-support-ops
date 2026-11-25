@@ -18,6 +18,8 @@ body {
 
 aside {
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
   inline-size: clamp(164px, 35vw, 252px);
   padding: 8px;
   background: #1a1a1a;
@@ -79,12 +81,11 @@ aside:has(.sidebar-toggle[aria-expanded="false"]) :is(.sidebar-brand, .sidebar-s
   visibility: hidden;
 }
 
-.sidebar-toggle {
+.sidebar-toggle, .sidebar-settings {
   display: grid;
   place-items: center;
   inline-size: 38px;
   block-size: 38px;
-  margin-inline-start: auto;
   padding: 0;
   border: 0;
   border-radius: 6px;
@@ -93,12 +94,85 @@ aside:has(.sidebar-toggle[aria-expanded="false"]) :is(.sidebar-brand, .sidebar-s
   cursor: pointer;
 }
 
-.sidebar-toggle:hover, .sidebar-toggle:focus-visible {
+.sidebar-toggle {
+  margin-inline-start: auto;
+}
+
+.sidebar-settings {
+  align-self: flex-start;
+  margin-block-start: auto;
+  border-radius: 50%;
+}
+
+.sidebar-settings:active svg {
+  transform: scale(0.9);
+}
+
+#settings-dialog {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  width: min(480px, calc(100vw - 32px));
+  height: min(280px, calc(100dvh - 32px));
+  margin: auto;
+  padding: 12px;
+  border: 1px solid #383838;
+  border-radius: 8px;
+  background: #202020;
+  color: #ebebeb;
+  box-shadow: 0 4px 16px #0004;
+  opacity: 0;
+  transform: scale(0.97);
+  transition: opacity var(--motion-collapse-expand), transform var(--motion-collapse-expand);
+}
+
+#settings-dialog.is-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+#settings-dialog::backdrop {
+  background: transparent;
+  -webkit-backdrop-filter: blur(0);
+  backdrop-filter: blur(0);
+  transition: backdrop-filter var(--motion-collapse-expand);
+}
+
+#settings-dialog.is-visible::backdrop {
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+}
+
+#settings-dialog button {
+  display: grid;
+  place-items: center;
+  margin-inline-start: auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #bcbcbc;
+  cursor: pointer;
+}
+
+#settings-dialog button:is(:hover, :focus-visible) {
+  background: #303030;
+  color: #ebebeb;
+}
+
+#settings-dialog button:focus-visible {
+  outline: 2px solid #ebebeb;
+  outline-offset: 2px;
+}
+
+:is(.sidebar-toggle, .sidebar-settings):is(:hover, :focus-visible) {
   background: #282828;
   color: #ebebeb;
 }
 
-.sidebar-toggle:focus-visible {
+:is(.sidebar-toggle, .sidebar-settings):focus-visible {
   outline: 2px solid #ebebeb;
   outline-offset: 2px;
 }
