@@ -42,6 +42,16 @@ aside:has(.sidebar-toggle[aria-expanded="false"]) {
   margin-inline-start: 10px;
   overflow: hidden;
   color: #f5f5f5;
+}
+
+.sidebar-section-label {
+  margin: 24px 10px 0;
+  color: #a8a8a8;
+  font: 500 13px/1.4 'Instrument Sans', system-ui, sans-serif;
+  overflow: hidden;
+}
+
+.sidebar-brand, .sidebar-section-label {
   white-space: nowrap;
   transition: opacity var(--motion-collapse-expand), visibility var(--motion-collapse-expand);
 }
@@ -64,7 +74,7 @@ aside:has(.sidebar-toggle[aria-expanded="false"]) {
   border-inline-start: 1px solid #484848;
 }
 
-.sidebar-header:has(.sidebar-toggle[aria-expanded="false"]) .sidebar-brand {
+aside:has(.sidebar-toggle[aria-expanded="false"]) :is(.sidebar-brand, .sidebar-section-label) {
   opacity: 0;
   visibility: hidden;
 }
