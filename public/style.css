@@ -112,18 +112,33 @@ aside:has(.sidebar-toggle[aria-expanded="false"]) :is(.sidebar-brand, .sidebar-s
   position: fixed;
   inset: 0;
   box-sizing: border-box;
-  width: min(480px, calc(100vw - 32px));
-  height: min(280px, calc(100dvh - 32px));
+  width: min(720px, calc(100vw - 32px));
+  height: min(480px, calc(100dvh - 32px));
   margin: auto;
-  padding: 12px;
+  padding: 0;
+  overflow: hidden;
   border: 1px solid #383838;
-  border-radius: 8px;
+  border-radius: 12px;
   background: #202020;
   color: #ebebeb;
   box-shadow: 0 4px 16px #0004;
   opacity: 0;
   transform: scale(0.97);
   transition: opacity var(--motion-collapse-expand), transform var(--motion-collapse-expand);
+}
+
+#settings-dialog[open] {
+  display: grid;
+  grid-template-columns: min(32%, 184px) minmax(0, 1fr);
+}
+
+.settings-sidebar {
+  background: #1a1a1a;
+  border-inline-end: 1px solid #383838;
+}
+
+.settings-pane {
+  padding: 12px;
 }
 
 #settings-dialog.is-visible {
