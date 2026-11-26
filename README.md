@@ -1,6 +1,20 @@
 # mt-support-ops
 
-A collapsible sidebar and an empty main workspace. Open `public/index.html` directly, or run `npm start` and visit <http://127.0.0.1:4318>.
+A collapsible sidebar, a Settings dialog, and an empty main workspace.
+
+## Run locally
+
+Use Node.js 24.14.0 or newer within the 24.x series, with npm. You can skip `npm install` because the shell has no package dependencies.
+
+```sh
+git clone https://github.com/microtool-io/mt-support-ops.git
+cd mt-support-ops
+npm start
+```
+
+Open <http://127.0.0.1:4318>. Press Ctrl+C in the terminal to stop the server.
+
+You can also preview the shell by opening `public/index.html` directly.
 
 ## Collapse and expand motion
 
