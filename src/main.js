@@ -1,6 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 
+import { openAreaStore, serveAreas } from './areas.js';
+
+process.umask(0o077);
+const store = openAreaStore();
 const files = new Map([
   ['/', ['text/html; charset=utf-8', readFileSync(new URL('../public/index.html', import.meta.url))]],
   ['/style.css', ['text/css; charset=utf-8', readFileSync(new URL('../public/style.css', import.meta.url))]],
@@ -8,7 +12,10 @@ const files = new Map([
 ]);
 
 const port = Number(process.env.PORT || 4318);
-createServer((request, response) => {
+const server = createServer((request, response) => {
+  if (request.url.split('?')[0] === '/api/areas') {
+    return serveAreas(request, response, store, server.address().port);
+  }
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     response.writeHead(405, { Allow: 'GET, HEAD' }).end();
     return;
@@ -23,4 +30,5 @@ createServer((request, response) => {
   const [type, content] = file;
   response.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store' });
   response.end(request.method === 'HEAD' ? undefined : content);
-}).listen(port, '127.0.0.1', () => console.log('http://127.0.0.1:' + port));
+});
+server.listen(port, '127.0.0.1', () => console.log('http://127.0.0.1:' + server.address().port));

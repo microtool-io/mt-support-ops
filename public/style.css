@@ -47,13 +47,13 @@ aside:has(.sidebar-toggle[aria-expanded="false"]) {
 }
 
 .sidebar-section-label {
-  margin: 24px 10px 0;
+  margin: 0;
   color: #a8a8a8;
   font: 500 13px/1.4 'Instrument Sans', system-ui, sans-serif;
   overflow: hidden;
 }
 
-.sidebar-brand, .sidebar-section-label {
+.sidebar-brand, .business-areas {
   white-space: nowrap;
   transition: opacity var(--motion-collapse-expand), visibility var(--motion-collapse-expand);
 }
@@ -76,7 +76,7 @@ aside:has(.sidebar-toggle[aria-expanded="false"]) {
   border-inline-start: 1px solid #484848;
 }
 
-aside:has(.sidebar-toggle[aria-expanded="false"]) :is(.sidebar-brand, .sidebar-section-label) {
+aside:has(.sidebar-toggle[aria-expanded="false"]) :is(.sidebar-brand, .business-areas) {
   opacity: 0;
   visibility: hidden;
 }
@@ -108,12 +108,10 @@ aside:has(.sidebar-toggle[aria-expanded="false"]) :is(.sidebar-brand, .sidebar-s
   transform: scale(0.9);
 }
 
-#settings-dialog {
+dialog {
   position: fixed;
   inset: 0;
   box-sizing: border-box;
-  width: min(720px, calc(100vw - 32px));
-  height: min(480px, calc(100dvh - 32px));
   margin: auto;
   padding: 0;
   overflow: hidden;
@@ -125,6 +123,11 @@ aside:has(.sidebar-toggle[aria-expanded="false"]) :is(.sidebar-brand, .sidebar-s
   opacity: 0;
   transform: scale(0.97);
   transition: opacity var(--motion-collapse-expand), transform var(--motion-collapse-expand);
+}
+
+#settings-dialog {
+  width: min(720px, calc(100vw - 32px));
+  height: min(480px, calc(100dvh - 32px));
 }
 
 #settings-dialog[open] {
@@ -177,19 +180,19 @@ aside:has(.sidebar-toggle[aria-expanded="false"]) :is(.sidebar-brand, .sidebar-s
   font: 600 18px/1.3 'Instrument Sans', system-ui, sans-serif;
 }
 
-#settings-dialog.is-visible {
+dialog.is-visible {
   opacity: 1;
   transform: scale(1);
 }
 
-#settings-dialog::backdrop {
+dialog::backdrop {
   background: transparent;
   -webkit-backdrop-filter: blur(0);
   backdrop-filter: blur(0);
   transition: backdrop-filter var(--motion-collapse-expand);
 }
 
-#settings-dialog.is-visible::backdrop {
+dialog.is-visible::backdrop {
   -webkit-backdrop-filter: blur(5px);
   backdrop-filter: blur(5px);
 }
@@ -237,4 +240,111 @@ aside:has(.sidebar-toggle[aria-expanded="false"]) :is(.sidebar-brand, .sidebar-s
 
 .sidebar-toggle[aria-expanded="false"] .toggle-chevron {
   transform: scaleX(-1);
+}
+
+.business-areas {
+  margin-block-start: 18px;
+  overflow: hidden;
+}
+
+.areas-header, #area-form footer {
+  display: flex;
+  align-items: center;
+}
+
+.areas-header {
+  justify-content: space-between;
+  padding-inline-start: 10px;
+}
+
+.business-areas button, #area-form button {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #bcbcbc;
+  font: 500 14px/1.4 'Instrument Sans', system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.add-area {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+}
+
+#area-list button {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: start;
+}
+
+.business-areas button:hover, #area-list [aria-current], #area-form button:hover {
+  background: #303030;
+  color: #ebebeb;
+}
+
+#area-dialog {
+  width: min(400px, calc(100vw - 32px));
+  padding: 22px;
+  overflow: auto;
+  font: 400 14px/1.4 'Instrument Sans', system-ui, sans-serif;
+}
+
+#area-form h2, #workspace-title {
+  margin: 0 0 20px;
+  font: 600 18px/1.3 'Instrument Sans', system-ui, sans-serif;
+}
+
+#workspace-title {
+  margin: 24px;
+  color: #ebebeb;
+  overflow-wrap: anywhere;
+}
+
+#area-form label {
+  display: block;
+  margin-bottom: 6px;
+  color: #bcbcbc;
+}
+
+#area-form input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #484848;
+  border-radius: 6px;
+  background: #1a1a1a;
+  color: #ebebeb;
+  font: inherit;
+}
+
+#area-form footer {
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+#area-form button {
+  padding: 7px 12px;
+}
+
+#area-form button[type="submit"] {
+  background: #ebebeb;
+  color: #202020;
+}
+
+.business-areas button:focus-visible, #area-form :focus-visible {
+  outline: 2px solid #ebebeb;
+  outline-offset: 2px;
+}
+
+.area-error {
+  white-space: normal;
+  color: #ebebeb;
+  font: 400 13px/1.4 'Instrument Sans', system-ui, sans-serif;
 }

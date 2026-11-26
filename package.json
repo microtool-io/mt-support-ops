@@ -1,6 +1,6 @@
 {
   "name": "mt-support-ops",
-  "description": "An empty sidebar and workspace.",
+  "description": "A B2B customer support operations workspace with installation-owned business areas.",
   "version": "0.1.0",
   "private": true,
   "type": "module",

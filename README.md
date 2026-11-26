@@ -1,6 +1,10 @@
 # mt-support-ops
 
-A collapsible sidebar, a Settings dialog, and an empty main workspace.
+A B2B customer support operations workspace where you can create a named business area and reopen it from the sidebar.
+
+This milestone is for local evaluation with sample names. The API listens on loopback
+and has no user authentication. Before sharing a deployment, configure and test
+server-side access controls and backup restoration.
 
 ## Run locally
 
@@ -12,9 +16,27 @@ cd mt-support-ops
 npm start
 ```
 
-Open <http://127.0.0.1:4318>. Press Ctrl+C in the terminal to stop the server.
+Open <http://127.0.0.1:4318>. Click **+** beside **Business areas**, enter a sample name, and choose **Create area**. Refresh and select the saved area in the sidebar to reopen it. Press Ctrl+C in the terminal to stop the server.
 
-You can also preview the shell by opening `public/index.html` directly.
+Opening `public/index.html` directly previews the shell. Saving and loading business areas requires the server.
+
+## Business area storage
+
+Run the server to create and reopen business areas. Each installation stores its areas in
+`areas.sqlite` under `~/.local/share/mt-support-ops` by default. To choose another
+location, set `MT_DATA_DIR` to an absolute path outside the checkout. Use a dedicated,
+persistent local directory private to the server account (0700 on Unix). Keep that
+path when replacing or updating the application. Give independent installations
+different directories. Area names accept up to 100 UTF-16 code units after trimming.
+
+## Run the tests
+
+From the repository root, run the storage test and the shell smoke test. Both use temporary data directories. The port override lets the smoke test run alongside the local preview.
+
+```sh
+node --test test/areas.test.js
+PORT=14319 bash scripts/smoke-test.sh
+```
 
 ## Collapse and expand motion
 

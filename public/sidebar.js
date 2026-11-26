@@ -2,27 +2,118 @@ const toggle = document.querySelector('.sidebar-toggle');
 const settingsButton = document.querySelector('.sidebar-settings');
 const settingsDialog = document.getElementById('settings-dialog');
 
-settingsButton.addEventListener('click', () => {
-  settingsDialog.showModal();
-  // Establish the starting geometry before transitioning the dialog and backdrop in.
-  settingsDialog.getBoundingClientRect();
-  settingsDialog.classList.add('is-visible');
-});
+const areaButton = document.querySelector('.add-area');
+const areaDialog = document.getElementById('area-dialog');
+const areaForm = document.getElementById('area-form');
+const areaName = document.getElementById('area-name');
+const areaList = document.getElementById('area-list');
+const workspaceTitle = document.getElementById('workspace-title');
 
-async function dismissSettings() {
-  if (!settingsDialog.classList.contains('is-visible')) return;
-  settingsDialog.classList.remove('is-visible');
-  const transitions = settingsDialog.getAnimations();
-  await Promise.allSettled(transitions.map(transition => transition.finished));
-  settingsDialog.close();
+const saveError = document.getElementById('save-error');
+let creationId;
+let saving = false;
+
+function openDialog(dialog) {
+  dialog.showModal();
+  // Establish the starting geometry before animating the dialog and backdrop.
+  dialog.getBoundingClientRect();
+  dialog.classList.add('is-visible');
 }
 
-settingsDialog.querySelector('button').addEventListener('click', dismissSettings);
-settingsDialog.addEventListener('cancel', event => {
-  event.preventDefault();
-  dismissSettings();
+async function dismissDialog(dialog) {
+  if (!dialog.classList.contains('is-visible')) return;
+  dialog.classList.remove('is-visible');
+  await Promise.allSettled(dialog.getAnimations().map(animation => animation.finished));
+  dialog.close();
+}
+
+settingsButton.addEventListener('click', () => openDialog(settingsDialog));
+settingsDialog.querySelector('button').addEventListener('click', () => dismissDialog(settingsDialog));
+areaButton.addEventListener('click', () => {
+  areaForm.reset();
+  creationId = crypto.randomUUID();
+  saveError.hidden = true;
+  openDialog(areaDialog);
 });
-settingsDialog.addEventListener('close', () => settingsButton.focus());
+areaForm.querySelector('[data-dismiss]').addEventListener('click', () => { if (!saving) dismissDialog(areaDialog); });
+
+for (const dialog of [settingsDialog, areaDialog]) {
+  dialog.addEventListener('cancel', event => {
+    event.preventDefault();
+    if (dialog !== areaDialog || !saving) dismissDialog(dialog);
+  });
+}
+
+function selectArea(item) {
+  areaList.querySelector('[aria-current]')?.removeAttribute('aria-current');
+  item.setAttribute('aria-current', 'page');
+  workspaceTitle.textContent = item.textContent;
+  workspaceTitle.hidden = false;
+}
+
+function appendArea(area) {
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.dataset.areaId = area.id;
+  item.textContent = area.name;
+  item.addEventListener('click', () => selectArea(item));
+  areaList.append(item);
+  return item;
+}
+
+async function loadAreas() {
+  areaButton.disabled = true;
+  const message = document.getElementById('load-error');
+  try {
+    if (location.protocol === 'file:') throw new Error('Static preview');
+    const response = await fetch('/api/areas', { signal: AbortSignal.timeout(10000) });
+    if (!response.ok) throw new Error('Load failed');
+    for (const area of await response.json()) appendArea(area);
+    areaButton.disabled = false;
+  } catch {
+    message.textContent = location.protocol === 'file:'
+      ? 'Start the local server to use business areas.'
+      : 'Could not load business areas. Refresh to retry.';
+    message.hidden = false;
+  }
+}
+
+loadAreas();
+
+areaForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (saving || !areaDialog.classList.contains('is-visible')) return;
+  areaName.value = areaName.value.trim();
+  if (!areaName.reportValidity()) return;
+
+  saving = true;
+  saveError.hidden = true;
+  areaName.readOnly = true;
+  for (const button of areaForm.querySelectorAll('button')) button.disabled = true;
+  let failureMessage = 'Could not confirm the save. Try again.';
+  try {
+    const response = await fetch('/api/areas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: creationId, name: areaName.value }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (response.status === 409) failureMessage = 'This area was already created. Refresh to see its saved name.';
+    if (!response.ok) throw new Error('Save failed');
+    const area = await response.json();
+    await dismissDialog(areaDialog);
+    const item = appendArea(area);
+    selectArea(item);
+    item.focus();
+  } catch {
+    saveError.textContent = failureMessage;
+    saveError.hidden = false;
+  } finally {
+    saving = false;
+    areaName.readOnly = false;
+    for (const button of areaForm.querySelectorAll('button')) button.disabled = false;
+  }
+});
 
 toggle.addEventListener('click', () => {
   const expanded = toggle.getAttribute('aria-expanded') === 'false';

@@ -27,3 +27,6 @@ jobs:
 
       - name: Start the shell and check its assets
         run: bash scripts/smoke-test.sh
+
+      - name: Check installation-owned area storage
+        run: node --test test/areas.test.js
