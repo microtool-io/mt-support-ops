@@ -7,6 +7,7 @@ scratch=$(mktemp -d)
 
 # Give npm and its server a process group so cleanup stops both.
 set -m
+export MT_DATA_DIR="$scratch/storage"
 npm start >"$scratch/server.log" 2>&1 &
 server_pid=$!
 
@@ -18,6 +19,8 @@ cleanup() {
     cat "$scratch/server.log" >&2
   fi
   rm -f "$scratch/server.log" "$scratch/body"
+  rm -f "$MT_DATA_DIR/areas.sqlite"
+  if [[ -d "$MT_DATA_DIR" ]]; then rmdir "$MT_DATA_DIR"; fi
   rmdir "$scratch"
 }
 trap cleanup EXIT

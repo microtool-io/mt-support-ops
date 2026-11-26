@@ -47,6 +47,7 @@
           </svg>
         </button>
       </header>
+      <p id="load-error" class="area-error" role="alert" hidden></p>
       <div id="area-list"></div>
     </section>
     <button class="sidebar-settings" type="button" aria-label="Settings" title="Settings"
@@ -70,7 +71,8 @@
     <form id="area-form">
       <h2 id="new-area-title">New business area</h2>
       <label for="area-name">Area name</label>
-      <input id="area-name" name="areaName" required autofocus autocomplete="off">
+      <input id="area-name" name="areaName" maxlength="100" required autofocus autocomplete="off">
+      <p id="save-error" class="area-error" role="alert" hidden></p>
       <footer>
         <button type="button" data-dismiss>Cancel</button>
         <button type="submit">Create area</button>

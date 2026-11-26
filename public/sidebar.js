@@ -9,6 +9,10 @@ const areaName = document.getElementById('area-name');
 const areaList = document.getElementById('area-list');
 const workspaceTitle = document.getElementById('workspace-title');
 
+const saveError = document.getElementById('save-error');
+let creationId;
+let saving = false;
+
 function openDialog(dialog) {
   dialog.showModal();
   // Establish the starting geometry before animating the dialog and backdrop.
@@ -27,14 +31,16 @@ settingsButton.addEventListener('click', () => openDialog(settingsDialog));
 settingsDialog.querySelector('button').addEventListener('click', () => dismissDialog(settingsDialog));
 areaButton.addEventListener('click', () => {
   areaForm.reset();
+  creationId = crypto.randomUUID();
+  saveError.hidden = true;
   openDialog(areaDialog);
 });
-areaForm.querySelector('[data-dismiss]').addEventListener('click', () => dismissDialog(areaDialog));
+areaForm.querySelector('[data-dismiss]').addEventListener('click', () => { if (!saving) dismissDialog(areaDialog); });
 
 for (const dialog of [settingsDialog, areaDialog]) {
   dialog.addEventListener('cancel', event => {
     event.preventDefault();
-    dismissDialog(dialog);
+    if (dialog !== areaDialog || !saving) dismissDialog(dialog);
   });
 }
 
@@ -45,20 +51,68 @@ function selectArea(item) {
   workspaceTitle.hidden = false;
 }
 
+function appendArea(area) {
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.dataset.areaId = area.id;
+  item.textContent = area.name;
+  item.addEventListener('click', () => selectArea(item));
+  areaList.append(item);
+  return item;
+}
+
+async function loadAreas() {
+  areaButton.disabled = true;
+  const message = document.getElementById('load-error');
+  try {
+    if (location.protocol === 'file:') throw new Error('Static preview');
+    const response = await fetch('/api/areas', { signal: AbortSignal.timeout(10000) });
+    if (!response.ok) throw new Error('Load failed');
+    for (const area of await response.json()) appendArea(area);
+    areaButton.disabled = false;
+  } catch {
+    message.textContent = location.protocol === 'file:'
+      ? 'Start the local server to use business areas.'
+      : 'Could not load business areas. Refresh to retry.';
+    message.hidden = false;
+  }
+}
+
+loadAreas();
+
 areaForm.addEventListener('submit', async event => {
   event.preventDefault();
-  if (!areaDialog.classList.contains('is-visible')) return;
+  if (saving || !areaDialog.classList.contains('is-visible')) return;
   areaName.value = areaName.value.trim();
   if (!areaName.reportValidity()) return;
 
-  const item = document.createElement('button');
-  item.type = 'button';
-  item.textContent = areaName.value;
-  item.addEventListener('click', () => selectArea(item));
-  await dismissDialog(areaDialog);
-  areaList.append(item);
-  selectArea(item);
-  item.focus();
+  saving = true;
+  saveError.hidden = true;
+  areaName.readOnly = true;
+  for (const button of areaForm.querySelectorAll('button')) button.disabled = true;
+  let failureMessage = 'Could not confirm the save. Try again.';
+  try {
+    const response = await fetch('/api/areas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: creationId, name: areaName.value }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (response.status === 409) failureMessage = 'This area was already created. Refresh to see its saved name.';
+    if (!response.ok) throw new Error('Save failed');
+    const area = await response.json();
+    await dismissDialog(areaDialog);
+    const item = appendArea(area);
+    selectArea(item);
+    item.focus();
+  } catch {
+    saveError.textContent = failureMessage;
+    saveError.hidden = false;
+  } finally {
+    saving = false;
+    areaName.readOnly = false;
+    for (const button of areaForm.querySelectorAll('button')) button.disabled = false;
+  }
 });
 
 toggle.addEventListener('click', () => {

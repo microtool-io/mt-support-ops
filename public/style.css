@@ -342,3 +342,9 @@ dialog.is-visible::backdrop {
   outline: 2px solid #ebebeb;
   outline-offset: 2px;
 }
+
+.area-error {
+  white-space: normal;
+  color: #ebebeb;
+  font: 400 13px/1.4 'Instrument Sans', system-ui, sans-serif;
+}
