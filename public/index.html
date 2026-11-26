@@ -56,13 +56,21 @@
   </aside>
   <main aria-label="Workspace"></main>
   <dialog id="settings-dialog" aria-label="Settings" closedby="any">
-    <div class="settings-sidebar"></div>
+    <nav class="settings-sidebar" aria-label="Settings sections">
+      <a href="#ai-connection" aria-current="location">AI connection</a>
+    </nav>
     <div class="settings-pane">
-      <button type="button" aria-label="Close settings" autofocus>
-        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true">
-          <path d="m4 4 8 8m0-8-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-      </button>
+      <header class="settings-pane-header">
+        <div class="settings-heading">
+          <span class="settings-parent">Settings <span aria-hidden="true">›</span></span>
+          <h2 id="ai-connection">AI connection</h2>
+        </div>
+        <button type="button" aria-label="Close settings" autofocus>
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true">
+            <path d="m4 4 8 8m0-8-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </header>
     </div>
   </dialog>
 </body>

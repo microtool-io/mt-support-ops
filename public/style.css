@@ -133,12 +133,48 @@ aside:has(.sidebar-toggle[aria-expanded="false"]) :is(.sidebar-brand, .sidebar-s
 }
 
 .settings-sidebar {
+  padding: 12px 8px;
   background: #1a1a1a;
   border-inline-end: 1px solid #383838;
 }
 
+.settings-sidebar a[aria-current] {
+  display: block;
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: #303030;
+  color: #ebebeb;
+  font: 500 13px/18px 'Instrument Sans', system-ui, sans-serif;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
 .settings-pane {
   padding: 12px;
+}
+
+.settings-pane-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  margin-inline-start: 6px;
+}
+
+.settings-parent {
+  color: #a8a8a8;
+  font: 500 13px/1.4 'Instrument Sans', system-ui, sans-serif;
+}
+
+.settings-pane-header h2 {
+  margin: 0;
+  font: 600 18px/1.3 'Instrument Sans', system-ui, sans-serif;
 }
 
 #settings-dialog.is-visible {
@@ -159,6 +195,7 @@ aside:has(.sidebar-toggle[aria-expanded="false"]) :is(.sidebar-brand, .sidebar-s
 }
 
 #settings-dialog button {
+  flex: none;
   display: grid;
   place-items: center;
   margin-inline-start: auto;
