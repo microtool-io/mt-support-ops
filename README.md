@@ -50,7 +50,9 @@ exec npm start'
 ```
 
 Open <http://127.0.0.1:4318> and choose **Settings → Connections → Test connection**.
-A successful check shows **Connected to Help Desk**. If HubSpot is reachable
+A successful check shows **Connected to Help Desk** and adds a **HubSpot**
+heading below **Business areas** in the sidebar. The app also checks once when
+the page loads. If HubSpot is reachable
 and no Help Desk inbox appears, check that Help Desk is set up in the account
 that issued the key.
 

@@ -53,7 +53,7 @@ aside:has(.sidebar-toggle[aria-expanded="false"]) {
   overflow: hidden;
 }
 
-.sidebar-brand, .business-areas {
+.sidebar-brand, .sidebar-section {
   white-space: nowrap;
   transition: opacity var(--motion-collapse-expand), visibility var(--motion-collapse-expand);
 }
@@ -76,7 +76,7 @@ aside:has(.sidebar-toggle[aria-expanded="false"]) {
   border-inline-start: 1px solid #484848;
 }
 
-aside:has(.sidebar-toggle[aria-expanded="false"]) :is(.sidebar-brand, .business-areas) {
+aside:has(.sidebar-toggle[aria-expanded="false"]) :is(.sidebar-brand, .sidebar-section) {
   opacity: 0;
   visibility: hidden;
 }
@@ -284,9 +284,25 @@ dialog.is-visible::backdrop {
   transform: scaleX(-1);
 }
 
-.business-areas {
+.sidebar-section {
   margin-block-start: 18px;
   overflow: hidden;
+}
+
+#hubspot-title {
+  padding-inline-start: 10px;
+}
+
+#areas-empty {
+  padding: 8px 10px 4px;
+  text-align: center;
+  white-space: normal;
+  color: #a8a8a8;
+  font: 400 13px/1.4 'Instrument Sans', system-ui, sans-serif;
+}
+
+#areas-empty p {
+  margin: 0 0 6px;
 }
 
 .areas-header, #area-form footer {
@@ -313,6 +329,12 @@ dialog.is-visible::backdrop {
   height: 30px;
   display: grid;
   place-items: center;
+}
+
+.business-areas .create-first-area {
+  padding: 4px 8px;
+  border: 1px solid #484848;
+  font-size: 13px;
 }
 
 #area-list button {
