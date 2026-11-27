@@ -34,6 +34,22 @@ settingsDialog.querySelector('.settings-pane-header button').addEventListener('c
 const hubSpotTest = settingsDialog.querySelector('.connection-test');
 const hubSpotStatus = document.getElementById('hubspot-status');
 const hubSpotSection = document.getElementById('hubspot-section');
+const responderLink = hubSpotSection.querySelector('.workspace-link');
+let selectedArea;
+
+function renderWorkspace() {
+  const onResponder = location.hash === responderLink.hash;
+  const current = onResponder ? (hubSpotSection.hidden ? null : responderLink) : selectedArea;
+  for (const link of document.querySelectorAll('.workspace-link[aria-current]')) {
+    link.removeAttribute('aria-current');
+  }
+  current?.setAttribute('aria-current', 'page');
+  workspaceTitle.textContent = current?.textContent ?? '';
+  workspaceTitle.hidden = !current;
+}
+
+window.addEventListener('hashchange', renderWorkspace);
+
 const hubSpotMessages = new Map([
   ['not_configured', 'Not connected. Set HUBSPOT_SERVICE_KEY on the server.'],
   ['invalid_key', 'HubSpot rejected the Service Key.'],
@@ -58,6 +74,7 @@ async function refreshHubSpotConnection() {
     // A failed check leaves the sidebar connection hidden.
   } finally {
     hubSpotSection.hidden = status !== 'connected';
+    renderWorkspace();
     const result = hubSpotMessages.get(status) ?? hubSpotMessages.get('unavailable');
     const time = new Date().toLocaleTimeString(undefined, { timeStyle: 'medium' });
     hubSpotStatus.textContent = `${result} · Last checked at ${time}`;
@@ -108,15 +125,15 @@ for (const dialog of [settingsDialog, areaDialog]) {
 }
 
 function selectArea(item) {
-  areaList.querySelector('[aria-current]')?.removeAttribute('aria-current');
-  item.setAttribute('aria-current', 'page');
-  workspaceTitle.textContent = item.textContent;
-  workspaceTitle.hidden = false;
+  selectedArea = item;
+  if (location.hash === responderLink.hash) location.hash = '';
+  renderWorkspace();
 }
 
 function appendArea(area) {
   const item = document.createElement('button');
   item.type = 'button';
+  item.className = 'workspace-link';
   item.dataset.areaId = area.id;
   item.textContent = area.name;
   item.addEventListener('click', () => selectArea(item));

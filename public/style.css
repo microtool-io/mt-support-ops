@@ -136,13 +136,19 @@ dialog {
 }
 
 .settings-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   padding: 12px 8px;
   background: #1a1a1a;
   border-inline-end: 1px solid #383838;
 }
 
 .settings-sidebar a {
-  display: block;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 40px;
   padding: 7px 10px;
   border-radius: 6px;
   color: #bcbcbc;
@@ -160,7 +166,7 @@ dialog {
 }
 
 .settings-pane {
-  padding: 12px;
+  padding: 20px;
   overflow: auto;
 }
 
@@ -175,7 +181,6 @@ dialog {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 2px 8px;
-  margin-inline-start: 6px;
 }
 
 .settings-parent {
@@ -193,11 +198,17 @@ dialog {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
-  margin: 16px 6px 0;
-  padding: 12px;
+  margin: 16px 0 0;
+  padding: 16px;
   border: 1px solid #383838;
   border-radius: 8px;
   font: 500 14px/1.4 'Instrument Sans', system-ui, sans-serif;
+}
+
+@media (max-width: 520px) {
+  .settings-pane, .connection-row {
+    padding: 12px;
+  }
 }
 
 .connection-details {
@@ -294,12 +305,13 @@ dialog.is-visible::backdrop {
 }
 
 .sidebar-section {
-  margin-block-start: 18px;
+  margin-block-start: 24px;
   overflow: hidden;
 }
 
-#hubspot-title {
-  padding-inline-start: 10px;
+.areas-header, #hubspot-title {
+  padding-inline-start: 12px;
+  margin-block-end: 8px;
 }
 
 #areas-empty {
@@ -321,10 +333,9 @@ dialog.is-visible::backdrop {
 
 .areas-header {
   justify-content: space-between;
-  padding-inline-start: 10px;
 }
 
-.business-areas button, #area-form button {
+.sidebar-section :is(button, .workspace-link), #area-form button {
   border: 0;
   border-radius: 6px;
   background: transparent;
@@ -346,17 +357,34 @@ dialog.is-visible::backdrop {
   font-size: 13px;
 }
 
-#area-list button {
+#area-list {
+  display: grid;
+  gap: 4px;
+}
+
+.workspace-link {
+  box-sizing: border-box;
+  text-decoration: none;
   display: block;
   width: 100%;
-  padding: 7px 10px;
+  min-width: 0;
+  min-height: 44px;
+  align-content: center;
+  padding: 10px 12px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: start;
 }
 
-.business-areas button:hover, #area-list [aria-current], #area-form button:hover {
+@media (max-width: 520px) {
+  .workspace-link {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+.sidebar-section :is(button, .workspace-link):hover, .sidebar-section .workspace-link[aria-current], #area-form button:hover {
   background: #303030;
   color: #ebebeb;
 }
@@ -411,7 +439,7 @@ dialog.is-visible::backdrop {
   color: #202020;
 }
 
-.business-areas button:focus-visible, #area-form :focus-visible {
+.sidebar-section :is(button, .workspace-link):focus-visible, #area-form :focus-visible {
   outline: 2px solid #ebebeb;
   outline-offset: 2px;
 }
