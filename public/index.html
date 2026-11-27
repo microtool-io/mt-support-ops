@@ -82,12 +82,13 @@
   <dialog id="settings-dialog" aria-label="Settings" closedby="any">
     <nav class="settings-sidebar" aria-label="Settings sections">
       <a href="#ai-connection" aria-current="location">AI connection</a>
+      <a href="#connections">Connections</a>
     </nav>
     <div class="settings-pane">
       <header class="settings-pane-header">
         <div class="settings-heading">
           <span class="settings-parent">Settings <span aria-hidden="true">›</span></span>
-          <h2 id="ai-connection">AI connection</h2>
+          <h2 id="settings-section-title">AI connection</h2>
         </div>
         <button type="button" aria-label="Close settings" autofocus>
           <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true">
@@ -95,6 +96,13 @@
           </svg>
         </button>
       </header>
+      <div id="ai-connection"></div>
+      <div id="connections" hidden>
+        <div class="connection-row">
+          <span class="connection-name">HubSpot</span>
+          <span class="connection-status">Not connected</span>
+        </div>
+      </div>
     </div>
   </dialog>
 </body>

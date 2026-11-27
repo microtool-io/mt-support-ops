@@ -29,6 +29,23 @@ async function dismissDialog(dialog) {
 
 settingsButton.addEventListener('click', () => openDialog(settingsDialog));
 settingsDialog.querySelector('button').addEventListener('click', () => dismissDialog(settingsDialog));
+
+const settingsLinks = settingsDialog.querySelectorAll('.settings-sidebar a');
+const settingsTitle = document.getElementById('settings-section-title');
+
+for (const link of settingsLinks) {
+  link.addEventListener('click', event => {
+    event.preventDefault();
+    for (const sectionLink of settingsLinks) {
+      const isCurrent = sectionLink === link;
+      if (isCurrent) sectionLink.setAttribute('aria-current', 'location');
+      else sectionLink.removeAttribute('aria-current');
+      document.getElementById(sectionLink.hash.slice(1)).hidden = !isCurrent;
+    }
+    settingsTitle.textContent = link.textContent;
+  });
+}
+
 areaButton.addEventListener('click', () => {
   areaForm.reset();
   creationId = crypto.randomUUID();

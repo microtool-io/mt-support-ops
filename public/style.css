@@ -141,19 +141,28 @@ dialog {
   border-inline-end: 1px solid #383838;
 }
 
-.settings-sidebar a[aria-current] {
+.settings-sidebar a {
   display: block;
   padding: 7px 10px;
   border-radius: 6px;
-  background: #303030;
-  color: #ebebeb;
+  color: #bcbcbc;
   font: 500 13px/18px 'Instrument Sans', system-ui, sans-serif;
   overflow-wrap: anywhere;
   text-decoration: none;
 }
 
+.settings-sidebar a:is(:hover, [aria-current]) {
+  background: #303030;
+  color: #ebebeb;
+}
+
+.settings-sidebar a:focus-visible {
+  outline: 2px solid #ebebeb;
+}
+
 .settings-pane {
   padding: 12px;
+  overflow: auto;
 }
 
 .settings-pane-header {
@@ -178,6 +187,24 @@ dialog {
 .settings-pane-header h2 {
   margin: 0;
   font: 600 18px/1.3 'Instrument Sans', system-ui, sans-serif;
+}
+
+.connection-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin: 16px 6px 0;
+  padding: 12px;
+  border: 1px solid #383838;
+  border-radius: 8px;
+  font: 500 14px/1.4 'Instrument Sans', system-ui, sans-serif;
+}
+
+.connection-status {
+  color: #a8a8a8;
+  font-size: 13px;
 }
 
 dialog.is-visible {
