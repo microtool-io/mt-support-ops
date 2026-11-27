@@ -52,7 +52,11 @@ key the workspace starts with HubSpot disconnected.
 Open <http://127.0.0.1:4318> and choose **Settings → Connections → Check connection**.
 A successful check shows **Help Desk inbox found** with the local time of the check and adds a **HubSpot**
 section below **Business areas** in the sidebar. Select **Help Desk Responder**
-to open its empty workspace. The app also checks once when
+to open its workspace. Switch **Infeed** on at the right of its row, then select the row to open **Tickets**.
+Use **Add sample ticket** to try the local preview. **Hold for manual release** applies to
+new samples. Select a ticket to inspect its content and preview action in the side panel.
+Refreshing clears the samples. The preview does not import tickets or write notes.
+The app also checks once when
 the page loads. If HubSpot is reachable
 and no Help Desk inbox appears, check that Help Desk is set up in the account
 that issued the key.

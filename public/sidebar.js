@@ -35,17 +35,93 @@ const hubSpotTest = settingsDialog.querySelector('.connection-test');
 const hubSpotStatus = document.getElementById('hubspot-status');
 const hubSpotSection = document.getElementById('hubspot-section');
 const responderLink = hubSpotSection.querySelector('.workspace-link');
+const responderHome = document.getElementById('responder-home');
+const infeedLink = responderHome.querySelector('a');
+const infeedPage = document.getElementById('infeed-page');
+const infeedEnabled = document.getElementById('infeed-enabled');
+const holdEnabled = document.getElementById('hold-enabled');
+const sampleButton = document.getElementById('sample-ticket');
+const ticketList = document.getElementById('ticket-list');
+const ticketPanel = document.getElementById('ticket-panel');
+const releaseButton = document.getElementById('release-ticket');
+let openTicket;
+
+function updatePreview() {
+  sampleButton.disabled = !infeedEnabled.checked;
+  document.getElementById('preview-hint').textContent = infeedEnabled.checked
+    ? 'Local preview with sample tickets only.'
+    : 'Turn on Infeed to try a sample ticket.';
+}
+
+infeedEnabled.addEventListener('change', updatePreview);
+
+function showTicketAction(ticket) {
+  const actions = {
+    'Held': 'Waiting for manual release. Releasing would add the internal note “AI checked, released from block manually”.',
+    'Released automatically': 'Would add the internal note “AI checked”.',
+    'Released manually': 'Would add the internal note “AI checked, released from block manually”.',
+  };
+  document.getElementById('ticket-action').textContent = actions[ticket.state];
+  releaseButton.hidden = ticket.state !== 'Held';
+  ticket.status.textContent = ticket.state;
+}
+
+sampleButton.addEventListener('click', () => {
+  if (!infeedEnabled.checked) return;
+  const number = ticketList.children.length + 1;
+  const item = document.createElement('li');
+  const row = document.createElement('button');
+  row.type = 'button';
+  row.className = 'ticket-row';
+  row.setAttribute('aria-haspopup', 'dialog');
+  const examples = [
+    ['Support hours', 'Could you confirm the support hours for our team?'],
+    ['Billing contact update', 'How can we update our billing contact?'],
+    ['Account invitation', 'Could you help us resend an invitation to a teammate?'],
+  ];
+  const [subject, body] = examples[(number - 1) % examples.length];
+  const title = number <= examples.length ? subject : subject + ' #' + number;
+  const status = document.createElement('span');
+  const ticket = { state: holdEnabled.checked ? 'Held' : 'Released automatically', status };
+  status.textContent = ticket.state;
+  row.append(title, status);
+  item.append(row);
+  ticketList.append(item);
+  document.getElementById('no-tickets').hidden = true;
+  row.addEventListener('click', () => {
+    openTicket = ticket;
+    document.getElementById('ticket-title').textContent = title;
+    document.getElementById('ticket-body').textContent = body;
+    showTicketAction(ticket);
+    openDialog(ticketPanel);
+  });
+});
+
+releaseButton.addEventListener('click', () => {
+  if (openTicket?.state !== 'Held') return;
+  openTicket.state = 'Released manually';
+  showTicketAction(openTicket);
+  ticketPanel.querySelector('header button').focus();
+});
+ticketPanel.querySelector('header button').addEventListener('click', () => dismissDialog(ticketPanel));
+ticketPanel.addEventListener('close', () => { openTicket = null; });
+
 let selectedArea;
 
 function renderWorkspace() {
-  const onResponder = location.hash === responderLink.hash;
+  const onInfeed = location.hash === infeedLink.hash;
+  const onResponder = onInfeed || location.hash === responderLink.hash;
+  responderHome.hidden = hubSpotSection.hidden || !onResponder || onInfeed;
+  infeedPage.hidden = hubSpotSection.hidden || !onInfeed;
+  if (infeedPage.hidden && ticketPanel.open) dismissDialog(ticketPanel);
+  updatePreview();
   const current = onResponder ? (hubSpotSection.hidden ? null : responderLink) : selectedArea;
   for (const link of document.querySelectorAll('.workspace-link[aria-current]')) {
     link.removeAttribute('aria-current');
   }
-  current?.setAttribute('aria-current', 'page');
+  current?.setAttribute('aria-current', onInfeed ? 'location' : 'page');
   workspaceTitle.textContent = current?.textContent ?? '';
-  workspaceTitle.hidden = !current;
+  workspaceTitle.hidden = !current || !infeedPage.hidden;
 }
 
 window.addEventListener('hashchange', renderWorkspace);
@@ -117,7 +193,7 @@ areaButton.addEventListener('click', openAreaDialog);
 areasEmpty.querySelector('button').addEventListener('click', openAreaDialog);
 areaForm.querySelector('[data-dismiss]').addEventListener('click', () => { if (!saving) dismissDialog(areaDialog); });
 
-for (const dialog of [settingsDialog, areaDialog]) {
+for (const dialog of [settingsDialog, areaDialog, ticketPanel]) {
   dialog.addEventListener('cancel', event => {
     event.preventDefault();
     if (dialog !== areaDialog || !saving) dismissDialog(dialog);
@@ -126,7 +202,7 @@ for (const dialog of [settingsDialog, areaDialog]) {
 
 function selectArea(item) {
   selectedArea = item;
-  if (location.hash === responderLink.hash) location.hash = '';
+  if ([responderLink.hash, infeedLink.hash].includes(location.hash)) location.hash = '';
   renderWorkspace();
 }
 

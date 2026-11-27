@@ -74,7 +74,50 @@
       </svg>
     </button>
   </aside>
-  <main aria-label="Workspace"><h1 id="workspace-title" hidden></h1></main>
+  <main aria-label="Workspace">
+    <h1 id="workspace-title" hidden></h1>
+    <div class="responder-content" id="responder-home" hidden>
+      <div class="infeed-bar">
+        <a href="#hubspot/help-desk-responder/infeed">Infeed</a>
+        <label class="infeed-control">
+          <input id="infeed-enabled" type="checkbox" role="switch" aria-label="Infeed" autocomplete="off">
+          <span aria-hidden="true"></span>
+        </label>
+      </div>
+    </div>
+    <div class="responder-content" id="infeed-page" hidden>
+      <header class="tickets-header">
+        <nav class="ticket-breadcrumb" aria-label="Breadcrumb">
+          <a href="#hubspot/help-desk-responder">Help Desk Responder</a>
+          <span aria-hidden="true">›</span>
+          <h1 aria-current="page">Tickets</h1>
+        </nav>
+        <label class="hold-setting">
+          Hold for manual release
+          <span class="infeed-control">
+            <input id="hold-enabled" type="checkbox" role="switch" aria-label="Hold for manual release" checked autocomplete="off">
+            <span aria-hidden="true"></span>
+          </span>
+        </label>
+      </header>
+      <ul id="ticket-list" aria-label="Tickets"></ul>
+      <p class="infeed-empty" id="no-tickets">No tickets yet</p>
+      <div class="ticket-preview-tools">
+        <p class="infeed-hint" id="preview-hint">Turn on Infeed to try a sample ticket.</p>
+        <button type="button" class="preview-button" id="sample-ticket" aria-describedby="preview-hint" disabled>Add sample ticket</button>
+      </div>
+    </div>
+  </main>
+  <dialog id="ticket-panel" aria-labelledby="ticket-title" closedby="any">
+    <header>
+      <h2 id="ticket-title"></h2>
+      <button type="button" aria-label="Close ticket" autofocus>×</button>
+    </header>
+    <p id="ticket-body"></p>
+    <h3>Responder action</h3>
+    <p id="ticket-action"></p>
+    <button type="button" class="preview-button" id="release-ticket">Release</button>
+  </dialog>
   <dialog id="area-dialog" aria-labelledby="new-area-title" closedby="any">
     <form id="area-form">
       <h2 id="new-area-title">New business area</h2>
