@@ -207,6 +207,21 @@ dialog {
   font-size: 13px;
 }
 
+#settings-dialog .connection-test {
+  display: inline-block;
+  width: auto;
+  height: auto;
+  padding: 6px 10px;
+  border: 1px solid #484848;
+  border-radius: 6px;
+  font: inherit;
+}
+
+#settings-dialog .connection-test:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 dialog.is-visible {
   opacity: 1;
   transform: scale(1);

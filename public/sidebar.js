@@ -28,7 +28,42 @@ async function dismissDialog(dialog) {
 }
 
 settingsButton.addEventListener('click', () => openDialog(settingsDialog));
-settingsDialog.querySelector('button').addEventListener('click', () => dismissDialog(settingsDialog));
+settingsDialog.querySelector('.settings-pane-header button').addEventListener('click', () => dismissDialog(settingsDialog));
+
+const hubSpotTest = settingsDialog.querySelector('.connection-test');
+const hubSpotStatus = document.getElementById('hubspot-status');
+const hubSpotMessages = new Map([
+  ['not_configured', 'Not connected. Set HUBSPOT_SERVICE_KEY on the server.'],
+  ['invalid_key', 'HubSpot rejected the Service Key.'],
+  ['access_denied', 'Access denied. Check the conversations.read scope.'],
+  ['rate_limited', 'HubSpot is limiting requests. Try again later.'],
+  ['no_help_desk', 'HubSpot is reachable. No Help Desk inbox found.'],
+  ['connected', 'Connected to Help Desk'],
+  ['unavailable', 'Could not verify the HubSpot connection. Try again.'],
+]);
+
+if (location.protocol === 'file:') {
+  hubSpotTest.disabled = true;
+  hubSpotStatus.textContent = 'Start the local server to test the connection.';
+}
+
+hubSpotTest.addEventListener('click', async () => {
+  hubSpotTest.disabled = true;
+  hubSpotStatus.textContent = 'Checking…';
+  try {
+    const response = await fetch('/api/connections/hubspot/check', {
+      method: 'POST',
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) throw new Error('Connection check failed');
+    const { status } = await response.json();
+    hubSpotStatus.textContent = hubSpotMessages.get(status) ?? hubSpotMessages.get('unavailable');
+  } catch {
+    hubSpotStatus.textContent = hubSpotMessages.get('unavailable');
+  } finally {
+    hubSpotTest.disabled = false;
+  }
+});
 
 const settingsLinks = settingsDialog.querySelectorAll('.settings-sidebar a');
 const settingsTitle = document.getElementById('settings-section-title');
