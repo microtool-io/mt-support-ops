@@ -29,12 +29,47 @@ persistent local directory private to the server account (0700 on Unix). Keep th
 path when replacing or updating the application. Give independent installations
 different directories. Area names accept up to 100 UTF-16 code units after trimming.
 
-## Run the tests
+## Check a HubSpot connection
 
-From the repository root, run the storage test and the shell smoke test. Both use temporary data directories. The port override lets the smoke test run alongside the local preview.
+Use a HubSpot developer test account with Help Desk set up and sample data. A
+HubSpot Super Admin or a user with Developer tools access can create a [Service
+Key](https://developers.hubspot.com/docs/apps/developer-platform/build-apps/authentication/account-service-keys)
+under **Development → Keys → Service Keys**. Give it a descriptive name such as
+`mt-support-ops sandbox` and select only `conversations.read`. The label is for
+your own reference. This scope can also read conversations. The app's check
+requests only inbox metadata.
+
+Stop the existing local server with Ctrl+C. From the repository root, run this
+command and paste the key at the hidden prompt.
 
 ```sh
-node --test test/areas.test.js
+bash -c 'read -r -s -p "HubSpot Service Key: " HUBSPOT_SERVICE_KEY || exit 1
+printf "\n"
+export HUBSPOT_SERVICE_KEY
+exec npm start'
+```
+
+Open <http://127.0.0.1:4318> and choose **Settings → Connections → Test connection**.
+A successful check shows **Connected to Help Desk**. If HubSpot is reachable
+and no Help Desk inbox appears, check that Help Desk is set up in the account
+that issued the key.
+
+The application also starts without a key. For a managed installation, the
+server process reads `HUBSPOT_SERVICE_KEY` from its environment, which a host's
+secret manager can supply. Keep the value out of the repository, browser
+configuration, and logs. To rotate it, replace the server secret and restart
+the app, then test the new key before expiring the old one in HubSpot. Delete
+an unused key from **Service Keys** in HubSpot.
+
+## Run the tests
+
+From the repository root, run the storage, HubSpot, and shell checks. The storage
+and shell checks use temporary data directories. The HubSpot tests use mocked
+responses and need no key. The port override lets the smoke test run alongside
+the local preview.
+
+```sh
+node --test
 PORT=14319 bash scripts/smoke-test.sh
 ```
 

@@ -30,3 +30,6 @@ jobs:
 
       - name: Check installation-owned area storage
         run: node --test test/areas.test.js
+
+      - name: Check HubSpot connection behavior with mocked responses
+        run: node --test test/hubspot.test.js

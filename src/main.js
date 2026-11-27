@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 
 import { openAreaStore, serveAreas } from './areas.js';
+import { serveHubSpotCheck } from './hubspot.js';
 
 process.umask(0o077);
 const store = openAreaStore();
@@ -12,16 +13,21 @@ const files = new Map([
 ]);
 
 const port = Number(process.env.PORT || 4318);
+const hubSpotServiceKey = process.env.HUBSPOT_SERVICE_KEY;
 const server = createServer((request, response) => {
-  if (request.url.split('?')[0] === '/api/areas') {
+  const path = request.url.split('?')[0];
+  if (path === '/api/areas') {
     return serveAreas(request, response, store, server.address().port);
+  }
+  if (path === '/api/connections/hubspot/check') {
+    return serveHubSpotCheck(request, response, server.address().port, hubSpotServiceKey);
   }
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     response.writeHead(405, { Allow: 'GET, HEAD' }).end();
     return;
   }
 
-  const file = files.get(request.url.split('?')[0]);
+  const file = files.get(path);
   if (!file) {
     response.writeHead(404).end();
     return;
