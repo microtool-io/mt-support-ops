@@ -8,7 +8,7 @@ server-side access controls and backup restoration.
 
 ## Run locally
 
-Use Node.js 24.14.0 or newer within the 24.x series, with npm. You can skip `npm install` because the shell has no package dependencies.
+On Windows, macOS, and Linux, use Node.js 24.14.0 or newer within the 24.x series, with npm. You can skip `npm install` because the shell has no package dependencies.
 
 ```sh
 git clone https://github.com/microtool-io/mt-support-ops.git
@@ -39,15 +39,15 @@ under **Development → Keys → Service Keys**. Give it a descriptive name such
 your own reference. This scope can also read conversations. The app's check
 requests only inbox metadata.
 
-Stop the existing local server with Ctrl+C. From the repository root, run this
-command and paste the key at the hidden prompt.
+### Company-managed installation
 
-```sh
-bash -c 'read -r -s -p "HubSpot Service Key: " HUBSPOT_SERVICE_KEY || exit 1
-printf "\n"
-export HUBSPOT_SERVICE_KEY
-exec npm start'
-```
+Store the company's own Service Key in its deployment secret manager. Configure
+the service to inject it as `HUBSPOT_SERVICE_KEY` at every start, grant secret
+access only to the app's service identity and authorized administrators, and
+use the standard `npm start` command. Keep separate credentials for test and production. Without a configured
+key the workspace starts with HubSpot disconnected.
+
+### Verify and rotate
 
 Open <http://127.0.0.1:4318> and choose **Settings → Connections → Test connection**.
 A successful check shows **Connected to Help Desk** and adds a **HubSpot**
@@ -56,9 +56,7 @@ the page loads. If HubSpot is reachable
 and no Help Desk inbox appears, check that Help Desk is set up in the account
 that issued the key.
 
-The application also starts without a key. For a managed installation, the
-server process reads `HUBSPOT_SERVICE_KEY` from its environment, which a host's
-secret manager can supply. Keep the value out of the repository, browser
+Keep the value out of the repository, browser
 configuration, and logs. To rotate it, replace the server secret and restart
 the app, then test the new key before expiring the old one in HubSpot. Delete
 an unused key from **Service Keys** in HubSpot.
@@ -67,12 +65,10 @@ an unused key from **Service Keys** in HubSpot.
 
 From the repository root, run the storage, HubSpot, and shell checks. The storage
 and shell checks use temporary data directories. The HubSpot tests use mocked
-responses and need no key. The port override lets the smoke test run alongside
-the local preview.
+responses and need no key. The startup check uses an available loopback port.
 
 ```sh
 node --test
-PORT=14319 bash scripts/smoke-test.sh
 ```
 
 ## Collapse and expand motion

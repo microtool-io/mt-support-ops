@@ -11,7 +11,11 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 
 test('areas survive replacing the application and stay scoped to their installation', { timeout: 30000 }, async t => {
   const temp = await mkdtemp(join(tmpdir(), 'mt-areas-'));
-  t.after(() => rm(temp, { recursive: true, force: true }));
+  const servers = [];
+  t.after(async () => {
+    await Promise.all(servers.map(stop => stop()));
+    await rm(temp, { recursive: true, force: true });
+  });
   async function checkout(name) {
     const dir = join(temp, name);
     await mkdir(dir);
@@ -31,7 +35,7 @@ test('areas survive replacing the application and stay scoped to their installat
       if (child.exitCode === null && child.signalCode === null) child.kill();
       await exited;
     }
-    t.after(stop);
+    servers.push(stop);
     const output = await Promise.race([
       once(child.stdout, 'data').then(([chunk]) => chunk.toString().trim()),
       exited.then(() => { throw new Error('Server exited before startup'); }),
