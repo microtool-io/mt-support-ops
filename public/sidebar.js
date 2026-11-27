@@ -7,6 +7,7 @@ const areaDialog = document.getElementById('area-dialog');
 const areaForm = document.getElementById('area-form');
 const areaName = document.getElementById('area-name');
 const areaList = document.getElementById('area-list');
+const areasEmpty = document.getElementById('areas-empty');
 const workspaceTitle = document.getElementById('workspace-title');
 
 const saveError = document.getElementById('save-error');
@@ -32,6 +33,7 @@ settingsDialog.querySelector('.settings-pane-header button').addEventListener('c
 
 const hubSpotTest = settingsDialog.querySelector('.connection-test');
 const hubSpotStatus = document.getElementById('hubspot-status');
+const hubSpotSection = document.getElementById('hubspot-section');
 const hubSpotMessages = new Map([
   ['not_configured', 'Not connected. Set HUBSPOT_SERVICE_KEY on the server.'],
   ['invalid_key', 'HubSpot rejected the Service Key.'],
@@ -42,28 +44,32 @@ const hubSpotMessages = new Map([
   ['unavailable', 'Could not verify the HubSpot connection. Try again.'],
 ]);
 
-if (location.protocol === 'file:') {
-  hubSpotTest.disabled = true;
-  hubSpotStatus.textContent = 'Start the local server to test the connection.';
-}
-
-hubSpotTest.addEventListener('click', async () => {
+async function refreshHubSpotConnection() {
   hubSpotTest.disabled = true;
   hubSpotStatus.textContent = 'Checking…';
+  let status = 'unavailable';
   try {
     const response = await fetch('/api/connections/hubspot/check', {
       method: 'POST',
       signal: AbortSignal.timeout(10000),
     });
-    if (!response.ok) throw new Error('Connection check failed');
-    const { status } = await response.json();
-    hubSpotStatus.textContent = hubSpotMessages.get(status) ?? hubSpotMessages.get('unavailable');
+    if (response.ok) ({ status } = await response.json());
   } catch {
-    hubSpotStatus.textContent = hubSpotMessages.get('unavailable');
+    // A failed check leaves the sidebar connection hidden.
   } finally {
+    hubSpotSection.hidden = status !== 'connected';
+    hubSpotStatus.textContent = hubSpotMessages.get(status) ?? hubSpotMessages.get('unavailable');
     hubSpotTest.disabled = false;
   }
-});
+}
+
+if (location.protocol === 'file:') {
+  hubSpotTest.disabled = true;
+  hubSpotStatus.textContent = 'Start the local server to test the connection.';
+} else {
+  hubSpotTest.addEventListener('click', refreshHubSpotConnection);
+  refreshHubSpotConnection();
+}
 
 const settingsLinks = settingsDialog.querySelectorAll('.settings-sidebar a');
 const settingsTitle = document.getElementById('settings-section-title');
@@ -81,12 +87,15 @@ for (const link of settingsLinks) {
   });
 }
 
-areaButton.addEventListener('click', () => {
+function openAreaDialog() {
   areaForm.reset();
   creationId = crypto.randomUUID();
   saveError.hidden = true;
   openDialog(areaDialog);
-});
+}
+
+areaButton.addEventListener('click', openAreaDialog);
+areasEmpty.querySelector('button').addEventListener('click', openAreaDialog);
 areaForm.querySelector('[data-dismiss]').addEventListener('click', () => { if (!saving) dismissDialog(areaDialog); });
 
 for (const dialog of [settingsDialog, areaDialog]) {
@@ -120,7 +129,9 @@ async function loadAreas() {
     if (location.protocol === 'file:') throw new Error('Static preview');
     const response = await fetch('/api/areas', { signal: AbortSignal.timeout(10000) });
     if (!response.ok) throw new Error('Load failed');
-    for (const area of await response.json()) appendArea(area);
+    const areas = await response.json();
+    for (const area of areas) appendArea(area);
+    areasEmpty.hidden = areas.length !== 0;
     areaButton.disabled = false;
   } catch {
     message.textContent = location.protocol === 'file:'
@@ -155,6 +166,7 @@ areaForm.addEventListener('submit', async event => {
     const area = await response.json();
     await dismissDialog(areaDialog);
     const item = appendArea(area);
+    areasEmpty.hidden = true;
     selectArea(item);
     item.focus();
   } catch {

@@ -37,7 +37,7 @@
         </svg>
       </button>
     </div>
-    <section class="business-areas" aria-labelledby="areas-title">
+    <section class="sidebar-section business-areas" aria-labelledby="areas-title">
       <header class="areas-header">
         <h2 class="sidebar-section-label" id="areas-title">Business areas</h2>
         <button class="add-area" type="button" aria-haspopup="dialog" aria-controls="area-dialog"
@@ -49,6 +49,13 @@
       </header>
       <p id="load-error" class="area-error" role="alert" hidden></p>
       <div id="area-list"></div>
+      <div id="areas-empty" hidden>
+        <p>No business areas yet</p>
+        <button class="create-first-area" type="button" aria-haspopup="dialog" aria-controls="area-dialog">Create area</button>
+      </div>
+    </section>
+    <section class="sidebar-section" id="hubspot-section" aria-labelledby="hubspot-title" hidden>
+      <h2 class="sidebar-section-label" id="hubspot-title">HubSpot</h2>
     </section>
     <button class="sidebar-settings" type="button" aria-label="Settings" title="Settings"
             aria-controls="settings-dialog" aria-haspopup="dialog">
