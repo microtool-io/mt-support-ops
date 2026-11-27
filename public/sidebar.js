@@ -40,7 +40,7 @@ const hubSpotMessages = new Map([
   ['access_denied', 'Access denied. Check the conversations.read scope.'],
   ['rate_limited', 'HubSpot is limiting requests. Try again later.'],
   ['no_help_desk', 'HubSpot is reachable. No Help Desk inbox found.'],
-  ['connected', 'Connected to Help Desk'],
+  ['connected', 'Help Desk inbox found'],
   ['unavailable', 'Could not verify the HubSpot connection. Try again.'],
 ]);
 
@@ -58,7 +58,9 @@ async function refreshHubSpotConnection() {
     // A failed check leaves the sidebar connection hidden.
   } finally {
     hubSpotSection.hidden = status !== 'connected';
-    hubSpotStatus.textContent = hubSpotMessages.get(status) ?? hubSpotMessages.get('unavailable');
+    const result = hubSpotMessages.get(status) ?? hubSpotMessages.get('unavailable');
+    const time = new Date().toLocaleTimeString(undefined, { timeStyle: 'medium' });
+    hubSpotStatus.textContent = `${result} · Last checked at ${time}`;
     hubSpotTest.disabled = false;
   }
 }

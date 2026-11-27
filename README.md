@@ -49,8 +49,8 @@ key the workspace starts with HubSpot disconnected.
 
 ### Verify and rotate
 
-Open <http://127.0.0.1:4318> and choose **Settings → Connections → Test connection**.
-A successful check shows **Connected to Help Desk** and adds a **HubSpot**
+Open <http://127.0.0.1:4318> and choose **Settings → Connections → Check connection**.
+A successful check shows **Help Desk inbox found** with the local time of the check and adds a **HubSpot**
 heading below **Business areas** in the sidebar. The app also checks once when
 the page loads. If HubSpot is reachable
 and no Help Desk inbox appears, check that Help Desk is set up in the account

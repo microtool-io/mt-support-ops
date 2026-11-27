@@ -132,7 +132,7 @@ dialog {
 
 #settings-dialog[open] {
   display: grid;
-  grid-template-columns: min(32%, 184px) minmax(0, 1fr);
+  grid-template-columns: minmax(min-content, min(32%, 184px)) minmax(0, 1fr);
 }
 
 .settings-sidebar {
@@ -147,7 +147,6 @@ dialog {
   border-radius: 6px;
   color: #bcbcbc;
   font: 500 13px/18px 'Instrument Sans', system-ui, sans-serif;
-  overflow-wrap: anywhere;
   text-decoration: none;
 }
 
@@ -192,9 +191,8 @@ dialog {
 .connection-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 4px 12px;
+  align-items: center;
+  gap: 8px 12px;
   margin: 16px 6px 0;
   padding: 12px;
   border: 1px solid #383838;
@@ -202,13 +200,24 @@ dialog {
   font: 500 14px/1.4 'Instrument Sans', system-ui, sans-serif;
 }
 
+.connection-details {
+  display: grid;
+  flex: 1 1 16rem;
+  min-width: 0;
+  gap: 2px;
+  overflow-wrap: anywhere;
+}
+
 .connection-status {
+  text-wrap: balance;
   color: #a8a8a8;
   font-size: 13px;
 }
 
 #settings-dialog .connection-test {
   display: inline-block;
+  margin-inline-start: 0;
+  max-width: 100%;
   width: auto;
   height: auto;
   padding: 6px 10px;
