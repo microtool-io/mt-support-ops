@@ -70,10 +70,10 @@ test('arrival-time settings survive restart, filtering and repeated polls; relea
   assert.deepEqual(feed.snapshot().tickets.map(({id, state}) => [id, state]), [['30', 'automatic'], ['20', 'held']]);
   assert.deepEqual(await feed.detail('20'), { text: 'Synthetic customer question' });
   assert.equal(await feed.detail('999'), null);
-  assert.equal(feed.release('999'), false);
-  feed.release('20');
-  feed.release('20');
-  feed.release('30');
+  assert.equal(await feed.release('999'), false);
+  await feed.release('20');
+  await feed.release('20');
+  await feed.release('30');
   assert.deepEqual(f.open().snapshot().tickets.map(t => t.state), ['automatic', 'manual']);
 });
 
@@ -128,9 +128,9 @@ test('turning on Infeed arms both release paths; arrival settings survive replay
   assert.deepEqual(result(), [
     ['30', 'held', undefined], ['20', 'automatic', 'queued'],
   ]);
-  feed.release('30');
-  feed.release('30');
-  feed.release('20');
+  await feed.release('30');
+  await feed.release('30');
+  await feed.release('20');
   assert.deepEqual(result(), [
     ['30', 'manual', 'queued'], ['20', 'automatic', 'queued'],
   ]);

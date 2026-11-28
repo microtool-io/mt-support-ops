@@ -250,6 +250,7 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
     busy = true;
     const started = now();
     try {
+      if (!await notes.verifyBoundAccount() || signal.aborted) return;
       const first = db.prepare('SELECT since FROM automatic_note_settings WHERE id=1').get().since;
       let found = false;
       let checked = started;
@@ -285,7 +286,7 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
       if (deliveries.has(ticket.id)) ticket.note = deliveries.get(ticket.id);
     }
     const pending = db.prepare('SELECT count(*) AS count FROM responder_work').get().count;
-    return { releaseNotesOnInfeed: true, notesEnabled: notes.enabled(), automaticNotes: notes.automatic(), enabled: !!enabled, hold: !!hold, tickets, pending, checked: checkpoint.get()?.checked ?? null, problem, busy };
+    return { releaseNotesOnInfeed: true, notesEnabled: notes.enabled(), automaticNotes: notes.automatic(), enabled: !!enabled, hold: !!hold, tickets, pending, checked: checkpoint.get()?.checked ?? null, accountProblem: notes.accountProblem(), problem, busy };
   }
 
   async function detail(id) {
@@ -293,7 +294,9 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
     if (!ticket) return null;
     const { signal } = gate;
     if (signal.aborted) return { paused: true };
-    if (!key?.trim() || now() < retryAt) throw new Error('Message unavailable');
+    if (!await notes.verifyBoundAccount()) return { paused: true, reason: notes.accountProblem() };
+    if (signal.aborted) return { paused: true };
+    if (now() < retryAt) throw new Error('Message unavailable');
     for await (const message of pages(signal, 'threads/' + ticket.thread + '/messages', { limit: '100' })) {
       if (message.type === 'MESSAGE' && message.direction === 'INCOMING' && typeof message.text === 'string' && message.text.trim()) {
         return { text: message.text.slice(0, 8000) };
@@ -302,7 +305,10 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
     return { text: '' };
   }
 
-  function release(id) {
+  async function release(id) {
+    const ticket = lookup.get(id);
+    if (!ticket || ticket.state !== 'held') return !!ticket;
+    if (!await notes.verifyBoundAccount()) throw new Error('HubSpot account verification required');
     db.exec('BEGIN IMMEDIATE');
     try {
       const result = db.prepare("UPDATE responder_tickets SET state = 'manual' WHERE id = ? AND state = 'held'").run(id);
@@ -337,12 +343,15 @@ export async function serveInfeed(req, res, port, feed, path) {
       return send(detail ? 200 : 404, detail);
     }
     if (ticket?.[2] && req.method === 'POST') {
-      if (!feed.release(ticket[1])) return send(404, { error: 'Unknown ticket' });
+      if (!await feed.release(ticket[1])) return send(404, { error: 'Unknown ticket' });
       void feed.notes.work();
       return send(200, feed.snapshot());
     }
     const setting = /^\/api\/infeed\/(enabled|hold)\/(on|off)$/.exec(path);
     if (setting && req.method === 'POST') {
+      if (path === '/api/infeed/enabled/on' && req.headers['x-mt-release-notes'] !== 'on-release') {
+        return send(409, { error: 'Reload the Responder to enable Infeed with internal release notes.' });
+      }
       await feed.configure(setting[1], setting[2] === 'on');
       if (setting[1] === 'enabled' && setting[2] === 'on') void feed.poll();
       return send(200, feed.snapshot());

@@ -83,11 +83,11 @@ The Conversations API is used for reads. Manual and automatic releases can add a
 
 Turning on Infeed enables note delivery on the same connection. The connection check verifies inbox access. The app verifies each write separately by reading the note back from its ticket. HubSpot ticket-write permission also grants wider ticket access, so grant it only to the intended service key.
 
-After updating an installation, stop the old server, start the updated checkout with `npm start` and reload the browser. An active read-only or manual-notes-only installation starts with Infeed off until you turn it on under the new behavior. Existing release decisions are never backfilled.
+After updating an installation, stop the old server, start the updated checkout with `npm start` and reload the browser. An active read-only or manual-notes-only installation starts with Infeed off until you turn it on under the new behavior. A tab left open from the older version must reload before it can turn on note delivery. Existing release decisions are never backfilled.
 
 With Hold on, open a held ticket and choose **Release**. With Hold off, the responder releases new tickets automatically. The note identifies which release occurred. The app saves the decision and a unique note reference together. The ticket panel shows delivery progress and confirms when the internal **AI Responder** note is verified on the ticket. If the server loses the create response, it checks the ticket for that reference after restart. An uncertain send is never automatically repeated. If the panel asks for review, inspect the ticket timeline before taking further action.
 
-Use one private data directory per HubSpot account. Turning on Infeed binds delivery to the verified account. Switching Infeed off stops new intake. Notes for releases already accepted can finish delivery. The ticket list distinguishes pending, permission errors, review and verified delivery. In HubSpot, open the ticket record and choose **Activities → Notes** to see the CRM note.
+Use one private data directory per HubSpot account. Turning on Infeed binds delivery to the verified account. After a restart, the server checks the configured key against that account before resuming intake, reading a ticket or processing a release. A rotated key for the same account resumes the saved queue. If the account differs, restore a key for the original account and restart. Switching Infeed off stops new intake. Notes for releases already accepted can finish delivery. The ticket list distinguishes pending, permission errors, review and verified delivery. In HubSpot, open the ticket record and choose **Activities → Notes** to see the CRM note.
 
 [HubSpot note delivery test history](docs/hubspot-release-notes.md)
 

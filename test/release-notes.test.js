@@ -80,12 +80,28 @@ test('manual release route survives simultaneous clicks and process loss after H
     throw Error('Application did not start');
   }
   let origin = await start();
-  const post = path => fetch(origin + '/api/infeed/' + path, { method: 'POST', headers: { Origin: origin } });
+  const post = (path, headers = {}) => fetch(origin + '/api/infeed/' + path, { method: 'POST', headers: { Origin: origin, ...headers } });
   const snapshot = async () => (await fetch(origin + '/api/infeed')).json();
   assert.equal((await snapshot()).notesEnabled, false);
   assert.equal((await post('tickets/13/release')).status, 503);
   assert.equal((await snapshot()).tickets.find(t => t.id === '13').state, 'held');
-  assert.equal((await post('enabled/on')).status, 200);
+  await t.test('a stale tab must reload before turning on Infeed with release notes', async () => {
+    const before = await snapshot();
+    for (const headers of [{}, { 'X-MT-Release-Notes': 'unknown' }]) {
+      const rejected = await post('enabled/on', headers);
+      assert.equal(rejected.status, 409);
+      assert.match((await rejected.json()).error, /reload/i);
+      assert.deepEqual(await snapshot(), before);
+    }
+    const page = await (await fetch(origin)).text();
+    const consent = /id="infeed-enabled"[^>]*data-release-notes="([^"]+)"/.exec(page);
+    assert.ok(consent);
+    assert.match(page, /Released tickets get an AI Responder internal note/);
+    const enabled = await post('enabled/on', { 'X-MT-Release-Notes': consent[1] });
+    assert.equal(enabled.status, 200);
+    const state = await enabled.json();
+    assert.ok(state.enabled && state.notesEnabled && state.automaticNotes);
+  });
   const clicks = await Promise.all([post('tickets/12/release'), post('tickets/12/release')]);
   assert.deepEqual(clicks.map(r => r.status), [200, 200]);
   await sent;
@@ -130,7 +146,7 @@ test('uncertain manual release stays read-only across incomplete, missing and du
   }, () => time);
   await feed.configure('enabled', true);
   db.prepare('INSERT INTO responder_tickets VALUES (?,?,?,?)').run('12', '2', 1, 'held');
-  feed.release('12');
+  await feed.release('12');
   const status = () => feed.snapshot().tickets[0].note;
   account = 2;
   await feed.notes.work();
@@ -168,7 +184,7 @@ test('a definitive permission refusal stays visible and recovers when the same k
   }, () => time);
   await feed.configure('enabled', true);
   db.prepare('INSERT INTO responder_tickets VALUES (?,?,?,?)').run('12', '2', 1, 'held');
-  feed.release('12');
+  await feed.release('12');
   await feed.notes.work();
   assert.equal(feed.snapshot().tickets[0].note, 'permission');
   time += 60000;
@@ -189,7 +205,7 @@ test('read-only upgrade requires activation and never adds jobs to earlier relea
   assert.equal(feed.snapshot().enabled, false);
   await feed.configure('enabled', true);
   assert.equal(feed.snapshot().automaticNotes, true);
-  feed.release('11');
+  await feed.release('11');
   assert.equal(feed.snapshot().tickets[0].note, undefined);
 });
 
@@ -204,4 +220,97 @@ test('an Off request during account verification cancels activation', async t =>
   await assert.rejects(enabling, /superseded/);
   assert.equal(feed.snapshot().enabled, false);
   assert.equal(feed.snapshot().notesEnabled, false);
+});
+
+test('restart verifies the bound account before polling, opening tickets, releasing or delivering a queued note', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'mt-responder-restart-'));
+  const file = join(directory, 'areas.sqlite');
+  let db = new DatabaseSync(file);
+  t.after(async () => {
+    db.close();
+    await rm(directory, { recursive: true, force: true, maxRetries: 3 });
+  });
+  const original = createInfeed(db, 'original-test-key', async () => Response.json({ portalId: 123 }));
+  await original.configure('enabled', true);
+  const seed = db.prepare("INSERT INTO responder_tickets VALUES (?, ?, 1, 'held')");
+  seed.run('10', '1');
+  seed.run('20', '2');
+  await original.release('20');
+  const queue = () => db.prepare('SELECT * FROM release_notes').all();
+  const saved = queue();
+  assert.equal(saved.length, 1);
+  db.close();
+
+  db = new DatabaseSync(file);
+  const identity = '/account-info/v3/details';
+  let finishCheck;
+  const requests = [];
+  const wrong = createInfeed(db, 'different-test-key', async url => {
+    requests.push(url.pathname);
+    assert.equal(url.pathname, identity);
+    return new Promise(resolve => { finishCheck = resolve; });
+  });
+  const poll = wrong.poll();
+  const detail = wrong.detail('10');
+  const release = assert.rejects(wrong.release('10'), /verification required/);
+  const delivery = wrong.notes.work();
+  assert.deepEqual(requests, [identity]);
+  finishCheck(Response.json({ portalId: 456 }));
+  await Promise.all([poll, release, delivery]);
+  const paused = await detail;
+  assert.equal(paused.paused, true);
+  assert.match(paused.reason, /different account/);
+  assert.equal(wrong.snapshot().accountProblem, paused.reason);
+  assert.equal(wrong.snapshot().checked, null);
+  assert.equal(wrong.snapshot().tickets.find(t => t.id === '10').state, 'held');
+  assert.deepEqual(requests, [identity]);
+  assert.deepEqual(queue(), saved);
+  db.close();
+
+  db = new DatabaseSync(file);
+  const resumed = [];
+  const rotated = createInfeed(db, 'rotated-test-key', async (url, options) => {
+    resumed.push(url.pathname);
+    assert.equal(options.headers.Authorization, 'Bearer rotated-test-key');
+    if (url.pathname === identity) return Response.json({ portalId: 123 });
+    if (url.pathname.endsWith('/inboxes')) return Response.json({ results: [{ type: 'HELP_DESK', id: '1' }] });
+    if (url.pathname.endsWith('/messages')) return Response.json({ results: [
+      { type: 'MESSAGE', direction: 'INCOMING', text: 'Synthetic question' },
+    ] });
+    assert.ok(url.pathname.endsWith('/threads'));
+    return Response.json({ results: [] });
+  });
+  await rotated.poll();
+  assert.equal(rotated.snapshot().accountProblem, '');
+  assert.ok(rotated.snapshot().checked);
+  assert.deepEqual(await rotated.detail('10'), { text: 'Synthetic question' });
+  assert.equal(resumed[0], identity);
+  assert.equal(resumed.filter(path => path === identity).length, 1);
+  assert.deepEqual(queue(), saved);
+});
+
+test('a failed startup identity check pauses intake and a later successful check resumes it', async t => {
+  const db = new DatabaseSync(':memory:');
+  t.after(() => db.close());
+  let time = 100, attempts = 0, intake = 0;
+  const original = createInfeed(db, 'synthetic', async () => Response.json({ portalId: 1 }), () => time);
+  await original.configure('enabled', true);
+  const restarted = createInfeed(db, 'rotated', async url => {
+    if (url.pathname === '/account-info/v3/details') {
+      attempts++;
+      return attempts === 1 ? new Response(null, { status: 503 }) : Response.json({ portalId: 1 });
+    }
+    intake++;
+    return Response.json({ results: url.pathname.endsWith('/inboxes') ? [{ type: 'HELP_DESK', id: '1' }] : [] });
+  }, () => time);
+  await restarted.poll();
+  await restarted.poll();
+  assert.match(restarted.snapshot().accountProblem, /Could not verify/);
+  assert.equal(intake, 0);
+  assert.equal(attempts, 1);
+  time += 30000;
+  await restarted.poll();
+  assert.equal(attempts, 2);
+  assert.equal(restarted.snapshot().checked, time);
+  assert.equal(restarted.snapshot().accountProblem, '');
 });

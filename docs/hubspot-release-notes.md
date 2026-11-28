@@ -1,6 +1,8 @@
 # HubSpot release notes — implementation checklist
 
-For current setup and behavior, see the [Responder instructions](../README.md#try-the-help-desk-responder-infeed). The current local candidate passed 23 automated tests on macOS. Three fresh sandbox emails exercised the normal Infeed and Release controls. The Off ticket stayed out of the list with zero associated notes. The held ticket had zero notes before manual release and one afterward. The automatic ticket had one note. Both notes appeared in the agent’s Help Desk ticket view with their respective manual or automatic wording. After verification the sandbox key was restored to intake-only and a CRM ticket read returned HTTP 403.
+For current setup and behavior, see the [Responder instructions](../README.md#try-the-help-desk-responder-infeed). Commit `458f41c` passed 23 automated tests on macOS. Three fresh sandbox emails exercised the normal Infeed and Release controls. The Off ticket stayed out of the list with zero associated notes. The held ticket had zero notes before manual release and one afterward. The automatic ticket had one note. Both notes appeared in the agent’s Help Desk ticket view with their respective manual or automatic wording. After verification the sandbox key was restored to intake-only and a CRM ticket read returned HTTP 403.
+
+The subsequent local restart and reload fixes passed 26 automated tests on macOS using synthetic accounts. A different-account key paused intake, ticket detail, manual release and queued delivery. A rotated same-account key resumed intake. In an isolated browser check, the v0.1.3 Infeed switch stayed off until the tab reloaded the updated UI.
 
 The checklist below records the earlier optional-note release and its sandbox checks.
 

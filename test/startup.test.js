@@ -45,7 +45,7 @@ try {
   }
   const changed = await fetch(origin + '/api/infeed/hold/off', { method: 'POST', headers: { Origin: origin } });
   assert.equal((await changed.json()).hold, false);
-  assert.equal((await fetch(origin + '/api/infeed/enabled/on', { method: 'POST', headers: { Origin: origin } })).status, 503);
+  assert.equal((await fetch(origin + '/api/infeed/enabled/on', { method: 'POST', headers: { Origin: origin, 'X-MT-Release-Notes': 'on-release' } })).status, 503);
   assert.equal((await fetch(origin + '/api/infeed/tickets/1')).status, 404);
   console.log('npm start served the workspace and reported HubSpot unconfigured.');
 } finally {

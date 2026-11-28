@@ -80,11 +80,11 @@
       <div class="infeed-bar">
         <a href="#hubspot/help-desk-responder/infeed">Infeed</a>
         <label class="infeed-control">
-          <input id="infeed-enabled" disabled type="checkbox" role="switch" aria-label="Infeed" autocomplete="off">
+          <input id="infeed-enabled" data-release-notes="on-release" aria-describedby="release-note-description" disabled type="checkbox" role="switch" aria-label="Infeed" autocomplete="off">
           <span aria-hidden="true"></span>
         </label>
       </div>
-      <p class="infeed-hint">Released tickets get an AI Responder internal note in HubSpot. Hold keeps the note pending until manual release.</p>
+      <p id="release-note-description" class="infeed-hint">Released tickets get an AI Responder internal note in HubSpot. Hold keeps the note pending until manual release.</p>
       <p class="infeed-hint" id="infeed-summary" role="status"></p>
     </div>
     <div class="responder-content" id="infeed-page" hidden>

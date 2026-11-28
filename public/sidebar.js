@@ -73,9 +73,10 @@ function showTicketAction(ticket) {
   if (ticket.state === 'held') action = feed.notesEnabled
     ? 'Release will add an AI Responder internal note to this ticket.'
     : 'Turn on Infeed to enable release with a HubSpot note.';
+  if (ticket.state === 'held' && feed.accountProblem) action = feed.accountProblem;
   document.getElementById('ticket-action').textContent = action;
   releaseButton.hidden = ticket.state !== 'held';
-  releaseButton.disabled = savingFeed || !feed.notesEnabled;
+  releaseButton.disabled = savingFeed || !feed.notesEnabled || !!feed.accountProblem;
 }
 
 async function openTicketPanel(id) {
@@ -88,9 +89,9 @@ async function openTicketPanel(id) {
   try {
     const response = await fetch('/api/infeed/tickets/' + id, { signal: AbortSignal.timeout(15000) });
     if (!response.ok) throw new Error();
-    const { text, paused } = await response.json();
+    const { text, paused, reason } = await response.json();
     if (openTicket === id) body.textContent = paused
-      ? 'Infeed is off. Incoming message retrieval is paused.'
+      ? (reason || 'Infeed is off. Incoming message retrieval is paused.')
       : text || 'No incoming plain-text message is available.';
   } catch {
     if (openTicket === id) body.textContent = 'Could not read the message from HubSpot. Reopen this ticket to retry.';
@@ -114,7 +115,7 @@ function renderFeed(data) {
       ' Last successful check: ' + new Date(data.checked).toLocaleTimeString() + '.';
   }
   if (data.enabled && data.pending) message += ' Awaiting processing or a ticket link: ' + data.pending + '.';
-  feedStatus(message);
+  feedStatus(data.accountProblem || message);
   // Keep existing buttons in place so refreshing preserves keyboard focus.
   data.tickets.forEach((ticket, index) => {
     let row = rows.get(ticket.id);
@@ -144,10 +145,14 @@ function renderFeed(data) {
 async function loadFeed(path = '') {
   const sequence = ++feedRequest;
   try {
+    const enabling = path === '/enabled/on';
     const response = await fetch('/api/infeed' + path, {
+      headers: enabling && infeedEnabled.dataset.releaseNotes
+        ? { 'X-MT-Release-Notes': infeedEnabled.dataset.releaseNotes } : {},
       method: path ? 'POST' : 'GET', signal: AbortSignal.timeout(15000),
     });
-    if (!response.ok) throw new Error(path === '/enabled/on'
+    if (enabling && response.status === 409) throw new Error('Reload the Responder to enable Infeed with internal release notes.');
+    if (!response.ok) throw new Error(enabling
       ? 'Infeed could not start. Check the HubSpot Service Key and account, then try again.'
       : 'Could not confirm the change. Refresh to check its saved state.');
     const data = await response.json();
@@ -169,7 +174,7 @@ async function changeFeed(path) {
   if (feed) {
     infeedEnabled.disabled = !connected && !feed.enabled;
     holdEnabled.disabled = false;
-    releaseButton.disabled = !feed.notesEnabled;
+    releaseButton.disabled = !feed.notesEnabled || !!feed.accountProblem;
   }
 }
 

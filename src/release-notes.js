@@ -27,6 +27,11 @@ export function createReleaseNotes(db, key, request = fetch, now = Date.now) {
     AND account=(SELECT account FROM note_settings WHERE enabled=1) AND due<=?
     ORDER BY due, release_notes.rowid LIMIT 1`);
   let running = false;
+  // The service key is fixed for the lifetime of this server. Never persist its verification.
+  let verifiedAccount;
+  let verification;
+  let accountProblem = '';
+  let retryVerificationAt = 0;
 
   async function call(path, payload) {
     if (!key?.trim()) throw new Error('key');
@@ -50,12 +55,39 @@ export function createReleaseNotes(db, key, request = fetch, now = Date.now) {
     return String(portalId);
   }
 
+  async function verifyBoundAccount() {
+    const expected = settings.get()?.account;
+    if (!expected) return false;
+    if (verifiedAccount === expected) return true;
+    if (now() < retryVerificationAt) return false;
+    if (!verification) {
+      verification = accountId().then(actual => {
+        if (actual !== expected) {
+          accountProblem = 'Responder paused. The HubSpot key belongs to a different account. Restore the installation’s key and restart.';
+          return false;
+        }
+        verifiedAccount = actual;
+        accountProblem = '';
+        return true;
+      }).catch(() => {
+        accountProblem = 'Responder paused. Could not verify the HubSpot account. Check the service key and connection.';
+        return false;
+      }).finally(() => {
+        if (accountProblem) retryVerificationAt = now() + 30000;
+        verification = null;
+      });
+    }
+    return verification;
+  }
+
   // Called in the same transaction that turns intake on.
   function bind(account, since) {
     const saved = db.prepare(`INSERT INTO note_settings VALUES(1,?,1)
       ON CONFLICT(id) DO UPDATE SET enabled=1 WHERE account=excluded.account`).run(account);
     if (!saved.changes) throw new Error('HubSpot account changed');
     db.prepare('INSERT INTO automatic_note_settings VALUES(1,?) ON CONFLICT DO NOTHING').run(since);
+    verifiedAccount = account;
+    accountProblem = '';
   }
 
   function enqueue(ticket) {
@@ -103,7 +135,7 @@ export function createReleaseNotes(db, key, request = fetch, now = Date.now) {
     let creating = false;
     try {
       job = next.get(now());
-      if (!job) return;
+      if (!job || !await verifyBoundAccount()) return;
       // Claim a time slot across processes. Only the pending -> uncertain transition permits a POST.
       if (!db.prepare('UPDATE release_notes SET due=? WHERE ticket=? AND phase=? AND due=?')
         .run(now() + 60000, job.ticket, job.phase, job.due).changes) return;
@@ -156,5 +188,5 @@ export function createReleaseNotes(db, key, request = fetch, now = Date.now) {
       running = false;
     }
   }
-  return { accountId, bind, enqueue, work, enabled: () => !!settings.get()?.enabled, automatic: () => !!db.prepare('SELECT id FROM automatic_note_settings').get() };
+  return { accountId, verifyBoundAccount, accountProblem: () => accountProblem, bind, enqueue, work, enabled: () => !!settings.get()?.enabled, automatic: () => !!db.prepare('SELECT id FROM automatic_note_settings').get() };
 }
