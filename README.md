@@ -75,9 +75,11 @@ an unused key from **Service Keys** in HubSpot.
 
 Arrival is the time of the first incoming customer message in the ticket’s first linked conversation. A thread can start with an outgoing message. The first customer reply then determines which Infeed and Hold settings apply. Spam, archived threads and regular inboxes are excluded. The ticket ID prevents duplicate decisions across retries and restarts.
 
-The server reads Help Desk activity in timestamp order. Each inbox saves its page cursor and the queued thread IDs together in the private installation database. Scans overlap by 15 minutes. Once discovered, a conversation awaiting its ticket link stays in the queue beyond that window. The server retries it with increasing delays of up to one hour while Infeed is on. Turning Infeed off pauses polling and preserves the queue. Existing ticket decisions survive settings changes and upgrades.
+The server reads Help Desk activity in timestamp order. Each inbox saves its page cursor and the queued thread IDs together in the private installation database. Scans overlap by 15 minutes. Once discovered, a conversation awaiting its ticket link stays in the queue beyond that window. The server retries it with increasing delays of up to one hour while Infeed is on. Turning Infeed off cancels active intake requests and pauses all responder reads of HubSpot ticket messages. Turning it back on starts a fresh discovery window. Previously discovered work resumes; tickets that had not been discovered before switching off may be missed. Existing ticket decisions survive settings changes and upgrades.
 
 The app makes read-only Conversations API calls. The note text is a proposed action. This version does not run an AI check, post a note, send a reply, or change the HubSpot ticket status. Ticket and thread IDs, arrival times, settings and decisions persist in the installation’s private SQLite database. The panel loads message text on demand and displays up to 8,000 characters. Keep a separate data directory per HubSpot account and restrict access to the server and its backups.
+
+[Optional HubSpot note delivery checklist](docs/hubspot-release-notes.md)
 
 ## Run the tests
 

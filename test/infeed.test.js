@@ -50,6 +50,7 @@ test('arrival-time settings survive restart, filtering and repeated polls; relea
   f.tick();
   feed.configure('hold', false);
   f.add('30');
+  await feed.poll();
   f.tick();
   feed.configure('enabled', false);
   f.add('40');

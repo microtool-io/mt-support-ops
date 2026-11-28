@@ -76,8 +76,10 @@ async function openTicketPanel(id) {
   try {
     const response = await fetch('/api/infeed/tickets/' + id, { signal: AbortSignal.timeout(15000) });
     if (!response.ok) throw new Error();
-    const { text } = await response.json();
-    if (openTicket === id) body.textContent = text || 'No incoming plain-text message is available.';
+    const { text, paused } = await response.json();
+    if (openTicket === id) body.textContent = paused
+      ? 'Infeed is off. Incoming message retrieval is paused.'
+      : text || 'No incoming plain-text message is available.';
   } catch {
     if (openTicket === id) body.textContent = 'Could not read the message from HubSpot. Reopen this ticket to retry.';
   }

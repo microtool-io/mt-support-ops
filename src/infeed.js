@@ -30,17 +30,26 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
   const current = () => at.get(Number.MAX_SAFE_INTEGER) ?? defaults;
   const lookup = db.prepare('SELECT * FROM responder_tickets WHERE id = ?');
   const checkpoint = db.prepare('SELECT checked FROM responder_sync WHERE id = 1');
+  // Each enabled interval owns its network requests, including ticket detail reads.
+  let gate = new AbortController();
+  if (!current().enabled) gate.abort();
   let busy = false;
   let problem = '';
   let retryAt = 0;
 
-  async function read(path, query, missingAllowed = false) {
+  async function read(signal, path, query, missingAllowed = false) {
+    signal.throwIfAborted();
     const url = new URL(path, base);
     url.search = new URLSearchParams(query);
     const result = await request(url, {
-      headers: { Authorization: 'Bearer ' + key.trim() }, redirect: 'error', signal: AbortSignal.timeout(10000),
+      headers: { Authorization: 'Bearer ' + key.trim() }, redirect: 'error', signal: AbortSignal.any([signal, AbortSignal.timeout(10000)]),
     });
-    if (result.ok) return result.json();
+    signal.throwIfAborted();
+    if (result.ok) {
+      const data = await result.json();
+      signal.throwIfAborted();
+      return data;
+    }
     if (result.status === 404 && missingAllowed) return null;
     if (result.status === 429) {
       const seconds = Number(result.headers.get('retry-after'));
@@ -53,20 +62,23 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
     throw error;
   }
 
-  async function page(path, query) {
-    const data = await read(path, query);
+  async function page(signal, path, query) {
+    const data = await read(signal, path, query);
     if (!Array.isArray(data?.results)) throw new Error('Unexpected HubSpot response.');
     const next = data.paging?.next;
     if (next && (typeof next.after !== 'string' || !next.after)) throw new Error('HubSpot pagination did not complete.');
     return { items: data.results, next: next?.after ?? null };
   }
 
-  async function* pages(path, query) {
+  async function* pages(signal, path, query) {
     const seen = new Set();
     let after;
     do {
-      const batch = await page(path, after ? { ...query, after } : query);
-      yield* batch.items;
+      const batch = await page(signal, path, after ? { ...query, after } : query);
+      for (const item of batch.items) {
+        signal.throwIfAborted();
+        yield item;
+      }
       after = batch.next;
       if (seen.has(after)) throw new Error('HubSpot pagination did not complete.');
       seen.add(after);
@@ -79,7 +91,19 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
     if (field === 'enabled' && value && !key?.trim()) throw new Error('HubSpot key required');
     if (settings[field] === Number(value)) return;
     settings[field] = Number(value);
-    db.prepare('INSERT INTO responder_settings VALUES (?, ?, ?)').run(now(), settings.enabled, settings.hold);
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      db.prepare('INSERT INTO responder_settings VALUES (?, ?, ?)').run(now(), settings.enabled, settings.hold);
+      if (field === 'enabled' && value) db.exec('DELETE FROM responder_scans; DELETE FROM responder_cursors');
+      db.exec('COMMIT');
+    } catch (error) {
+      db.exec('ROLLBACK');
+      throw error;
+    }
+    if (field === 'enabled') {
+      if (value) gate = new AbortController();
+      else gate.abort();
+    }
   }
 
   const scanRow = db.prepare('SELECT * FROM responder_scans WHERE inbox = ?');
@@ -106,7 +130,7 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
     }
   }
 
-  async function scanInbox(inbox, first, started) {
+  async function scanInbox(signal, inbox, first, started) {
     db.prepare('INSERT INTO responder_scans (inbox, started) VALUES (?, ?) ON CONFLICT(inbox) DO UPDATE SET started = coalesce(started, excluded.started)')
       .run(inbox, started);
     const scan = scanRow.get(inbox);
@@ -114,15 +138,15 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
     const query = { inboxId: inbox, association: 'TICKET', sort: 'latestMessageTimestamp', limit: '100',
       latestMessageTimestampAfter: new Date(since - 1).toISOString() };
 
-    for (let i = 0; i < pagesPerInbox && current().enabled; i++) {
+    for (let i = 0; i < pagesPerInbox && !signal.aborted; i++) {
       let batch;
       try {
-        batch = await page('threads', scan.cursor ? { ...query, after: scan.cursor } : query);
+        batch = await page(signal, 'threads', scan.cursor ? { ...query, after: scan.cursor } : query);
       } catch (error) {
         if (scan.cursor && [400, 410].includes(error.status)) replayWindow(inbox);
         throw error;
       }
-      if (!current().enabled) return;
+      if (signal.aborted) return;
       // A scan has a fixed end so a busy inbox cannot keep it open indefinitely.
       const beyondEnd = batch.items.some(thread => Date.parse(thread.latestMessageTimestamp) > scan.started);
       const cursor = beyondEnd ? null : batch.next;
@@ -154,8 +178,8 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
     }
   }
 
-  async function route(job) {
-    const thread = await read('threads/' + job.thread, { association: 'TICKET' }, true);
+  async function route(signal, job) {
+    const thread = await read(signal, 'threads/' + job.thread, { association: 'TICKET' }, true);
     if (thread === null || thread.archived || thread.spam || String(thread.inboxId) !== job.inbox) return true;
     if (thread.id !== job.thread) throw new Error('Unexpected HubSpot response.');
     const ids = ticketIds(thread);
@@ -164,15 +188,15 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
     if (!unknown.length) return true;
     // HubSpot's ascending message order includes comments and outgoing messages.
     // Only the first incoming MESSAGE determines the immutable routing decision.
-    for await (const message of pages('threads/' + job.thread + '/messages', { sort: 'createdAt', limit: '100' })) {
+    for await (const message of pages(signal, 'threads/' + job.thread + '/messages', { sort: 'createdAt', limit: '100' })) {
       if (message.type !== 'MESSAGE' || message.direction !== 'INCOMING') continue;
       const arrived = Date.parse(message.createdAt);
       if (!Number.isFinite(arrived) || arrived > now()) return false;
       const settings = at.get(arrived);
       if (!settings?.enabled) return true;
       for (const id of unknown) {
-        const first = await page('threads', { associatedTicketId: id, sort: 'id', limit: '1' });
-        if (!first.items.length || !current().enabled) return false;
+        const first = await page(signal, 'threads', { associatedTicketId: id, sort: 'id', limit: '1' });
+        if (!first.items.length || signal.aborted) return false;
         if (first.items[0].id === job.thread) {
           db.prepare('INSERT INTO responder_tickets VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING')
             .run(id, job.thread, arrived, settings.hold ? 'held' : 'automatic');
@@ -183,40 +207,45 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
     return false;
   }
 
-  async function drain() {
+  async function drain(signal) {
     for (const job of nextWork.all(now(), workPerPoll)) {
-      if (!current().enabled) break;
+      if (signal.aborted) break;
       // Rotate outstanding jobs fairly even if a read fails or the process exits.
       const delay = Math.min(3600, 30 * 2 ** Math.min(7, job.attempts));
       db.prepare('UPDATE responder_work SET due = ?, attempts = attempts + 1 WHERE thread = ?')
         .run(now() + delay * 1000, job.thread);
-      if (await route(job)) forget.run(job.thread);
+      if (await route(signal, job) && !signal.aborted) forget.run(job.thread);
     }
   }
 
   async function poll() {
     if (busy || !current().enabled || now() < retryAt) return;
+    const { signal } = gate;
     busy = true;
     const started = now();
     try {
-      const first = db.prepare('SELECT min(at) AS start FROM responder_settings WHERE enabled = 1').get().start;
+      const first = db.prepare(`
+        SELECT min(at) AS start FROM responder_settings
+        WHERE enabled = 1 AND rowid > (SELECT coalesce(max(rowid), 0) FROM responder_settings WHERE enabled = 0)
+      `).get().start;
       let found = false;
       let checked = started;
-      for await (const inbox of pages('inboxes', {})) {
-        if (!current().enabled) return;
+      for await (const inbox of pages(signal, 'inboxes', {})) {
+        if (signal.aborted) return;
         if (inbox.type !== 'HELP_DESK') continue;
         const id = String(inbox.id);
         if (!validId(id)) throw new Error('Unexpected HubSpot response.');
         found = true;
-        await scanInbox(id, first, started);
+        await scanInbox(signal, id, first, started);
         checked = Math.min(checked, scanRow.get(id).checked ?? 0);
       }
       if (!found) throw new Error('No Help Desk inbox found.');
-      await drain();
-      if (!current().enabled) return;
+      await drain(signal);
+      if (signal.aborted) return;
       if (checked) db.prepare('INSERT OR REPLACE INTO responder_sync VALUES (1, ?)').run(checked);
       problem = '';
     } catch (error) {
+      if (signal.aborted) return;
       const known = ['Rate limited by HubSpot.', 'Check the HubSpot key and conversations.read permission.',
         'HubSpot is unavailable.', 'Unexpected HubSpot response.', 'HubSpot pagination did not complete.', 'No Help Desk inbox found.'];
       problem = known.includes(error.message) ? error.message : 'Could not complete the Help Desk check.';
@@ -235,8 +264,10 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
   async function detail(id) {
     const ticket = lookup.get(id);
     if (!ticket) return null;
+    const { signal } = gate;
+    if (signal.aborted) return { paused: true };
     if (!key?.trim() || now() < retryAt) throw new Error('Message unavailable');
-    for await (const message of pages('threads/' + ticket.thread + '/messages', { limit: '100' })) {
+    for await (const message of pages(signal, 'threads/' + ticket.thread + '/messages', { limit: '100' })) {
       if (message.type === 'MESSAGE' && message.direction === 'INCOMING' && typeof message.text === 'string' && message.text.trim()) {
         return { text: message.text.slice(0, 8000) };
       }

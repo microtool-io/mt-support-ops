@@ -1,0 +1,14 @@
+# HubSpot release notes — implementation checklist
+
+The application currently records releases locally. A one-ticket permission test is separate from enabling delivery in the application. This checklist tracks the work required to ship optional note delivery on the existing HubSpot connection.
+
+| Status | Acceptance check |
+| --- | --- |
+| Tested locally | Infeed Off starts zero intake requests, aborts active reads, rejects late results after Off → On, and pauses on-demand HubSpot message reads. Re-enabling opens a fresh discovery window. Previously saved decisions and discovered work survive. |
+| Verified in one sandbox | The original conversations-only key and the same key with ticket read both returned HTTP 403 on create. With `conversations.read` and temporary `crm.objects.tickets.write`, the CRM Notes endpoint returned HTTP 201 for one note associated with its previously released ticket. Help Desk showed exactly one internal note with the expected text. Both temporary permissions were removed; the same key ended with only `conversations.read`. This establishes a working scope combination for this sandbox. Ticket write grants broader authority than creating notes. |
+| Open — automated verification | A separate GET of the created note and its association returned 403 with the tested write scope. The operator verified the result in the ticket UI. Establish a supported read-back or reconciliation procedure before automating retries; never repeat a successful or ambiguous create just to verify it. |
+| Open — installer controls | One HubSpot settings entry and one server-side credential. Note delivery defaults to off for new installations and upgrades. Enabling covers future releases. Specify how disabling handles pending or uncertain attempts. The connection check must stay read-only. |
+| Open — account and ticket identity | Bind delivery jobs to a verified HubSpot account, ticket and saved release. Check key rotation in the same account and fail closed if the account changes. Derive both destination and wording on the server. |
+| Open — reliable delivery | Save a unique delivery job with the release decision in one transaction. Confirm the HubSpot note ID and association before marking delivery successful. Reconcile ambiguous responses before retrying. Expose pending, added, permission denied and uncertain states. |
+| Open — tests and packaging | Cover concurrent releases, process restart, timeout after acceptance, rate limits, revoked permissions and recovery. Test a fresh clone and an upgrade with historical releases. Public CI uses synthetic fixtures on Windows, macOS and Linux. Keep credentials, real ticket data and provider response bodies outside the repository and its logs. |
+| Open — shared deployment | Before enabling writes on a company subdomain, enforce authentication and server-side authorization for changing connection settings and releasing tickets. Current evaluation runs on loopback. |
