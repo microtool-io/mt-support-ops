@@ -2,7 +2,7 @@
 
 A B2B customer support operations workspace where you can create a named business area and reopen it from the sidebar.
 
-This milestone is for local evaluation with sample names. The API listens on loopback
+This milestone is for local evaluation with sample names and a HubSpot test account. The API listens on loopback
 and has no user authentication. Before sharing a deployment, configure and test
 server-side access controls and backup restoration.
 
@@ -52,12 +52,7 @@ key the workspace starts with HubSpot disconnected.
 Open <http://127.0.0.1:4318> and choose **Settings → Connections → Check connection**.
 A successful check shows **Help Desk inbox found** with the local time of the check and adds a **HubSpot**
 section below **Business areas** in the sidebar. Select **Help Desk Responder**
-to open its workspace. Switch **Infeed** on at the right of its row, then select the row to open **Tickets**.
-Use **Add sample ticket** to try the local preview. **Hold for manual release** applies to
-new samples. Select a ticket to inspect its content and preview action in the side panel.
-Refreshing clears the samples. The preview does not import tickets or write notes.
-The app also checks once when
-the page loads. If HubSpot is reachable
+to open its workspace. The app also checks the connection when the page loads. If HubSpot is reachable
 and no Help Desk inbox appears, check that Help Desk is set up in the account
 that issued the key.
 
@@ -65,6 +60,24 @@ Keep the value out of the repository, browser
 configuration, and logs. To rotate it, replace the server secret and restart
 the app, then test the new key before expiring the old one in HubSpot. Delete
 an unused key from **Service Keys** in HubSpot.
+
+## Try the Help Desk Responder infeed
+
+1. In **Help Desk Responder**, select the **Infeed** row to open **Tickets**. **Hold for manual release** starts on. Return to **Help Desk Responder** and switch **Infeed** on.
+2. Send a fresh test message through a channel connected to the sandbox Help Desk so HubSpot creates a new ticket and conversation. Use a new conversation for each test. A manually created CRM ticket without an incoming conversation is outside this infeed.
+3. Open **Tickets**. While Infeed is on, the running server checks HubSpot every 30 seconds, even with the browser closed. The page refreshes the queue every five seconds. Select a ticket number to read an incoming plain-text message and inspect the prepared action.
+
+| Infeed at arrival | Hold at arrival | Local result |
+| --- | --- | --- |
+| Off | Either | Skip the ticket. |
+| On | On | Show **Held**. Selecting **Release** prepares the internal note “AI checked, released from block manually”. |
+| On | Off | Prepare the internal note “AI checked” automatically. |
+
+Arrival is the time of the first incoming customer message in the ticket’s first linked conversation. A thread can start with an outgoing message. The first customer reply then determines which Infeed and Hold settings apply. Spam, archived threads and regular inboxes are excluded. The ticket ID prevents duplicate decisions across retries and restarts.
+
+The server reads Help Desk activity in timestamp order. Each inbox saves its page cursor and the queued thread IDs together in the private installation database. Scans overlap by 15 minutes. Once discovered, a conversation awaiting its ticket link stays in the queue beyond that window. The server retries it with increasing delays of up to one hour while Infeed is on. Turning Infeed off pauses polling and preserves the queue. Existing ticket decisions survive settings changes and upgrades.
+
+The app makes read-only Conversations API calls. The note text is a proposed action. This version does not run an AI check, post a note, send a reply, or change the HubSpot ticket status. Ticket and thread IDs, arrival times, settings and decisions persist in the installation’s private SQLite database. The panel loads message text on demand and displays up to 8,000 characters. Keep a separate data directory per HubSpot account and restrict access to the server and its backups.
 
 ## Run the tests
 

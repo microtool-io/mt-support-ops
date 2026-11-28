@@ -21,7 +21,7 @@ export function openAreaStore() {
   const list = db.prepare('SELECT id, name FROM areas ORDER BY rowid');
   const insert = db.prepare('INSERT INTO areas (id, name) VALUES (?, ?) ON CONFLICT(id) DO NOTHING');
   const lookup = db.prepare('SELECT id, name FROM areas WHERE id = ?');
-  return { list, insert, lookup };
+  return { db, list, insert, lookup };
 }
 
 export async function serveAreas(request, response, store, port) {

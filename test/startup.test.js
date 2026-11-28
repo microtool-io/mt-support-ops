@@ -37,6 +37,16 @@ try {
   });
   assert.equal(check.status, 200);
   assert.deepEqual(await check.json(), { status: 'not_configured' });
+  const feed = await (await fetch(origin + '/api/infeed')).json();
+  assert.equal(feed.enabled, false);
+  assert.equal(feed.hold, true);
+  for (const headers of [{}, { Origin: 'https://example.com' }, { Origin: origin, 'Sec-Fetch-Site': 'cross-site' }]) {
+    assert.equal((await fetch(origin + '/api/infeed/hold/off', { method: 'POST', headers })).status, 403);
+  }
+  const changed = await fetch(origin + '/api/infeed/hold/off', { method: 'POST', headers: { Origin: origin } });
+  assert.equal((await changed.json()).hold, false);
+  assert.equal((await fetch(origin + '/api/infeed/enabled/on', { method: 'POST', headers: { Origin: origin } })).status, 503);
+  assert.equal((await fetch(origin + '/api/infeed/tickets/1')).status, 404);
   console.log('npm start served the workspace and reported HubSpot unconfigured.');
 } finally {
   clearTimeout(deadline);

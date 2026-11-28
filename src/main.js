@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 
 import { openAreaStore, serveAreas } from './areas.js';
+import { createInfeed, serveInfeed } from './infeed.js';
 import { serveHubSpotCheck } from './hubspot.js';
 
 process.umask(0o077);
@@ -14,8 +15,12 @@ const files = new Map([
 
 const port = Number(process.env.PORT || 4318);
 const hubSpotServiceKey = process.env.HUBSPOT_SERVICE_KEY;
+const infeed = createInfeed(store.db, hubSpotServiceKey);
 const server = createServer((request, response) => {
   const path = request.url.split('?')[0];
+  if (path === '/api/infeed' || path.startsWith('/api/infeed/')) {
+    return serveInfeed(request, response, server.address().port, infeed, path);
+  }
   if (path === '/api/areas') {
     return serveAreas(request, response, store, server.address().port);
   }
@@ -37,4 +42,8 @@ const server = createServer((request, response) => {
   response.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store' });
   response.end(request.method === 'HEAD' ? undefined : content);
 });
-server.listen(port, '127.0.0.1', () => console.log('http://127.0.0.1:' + server.address().port));
+server.listen(port, '127.0.0.1', () => {
+  console.log('http://127.0.0.1:' + server.address().port);
+  void infeed.poll();
+  setInterval(() => void infeed.poll(), 30000).unref();
+});

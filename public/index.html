@@ -80,10 +80,11 @@
       <div class="infeed-bar">
         <a href="#hubspot/help-desk-responder/infeed">Infeed</a>
         <label class="infeed-control">
-          <input id="infeed-enabled" type="checkbox" role="switch" aria-label="Infeed" autocomplete="off">
+          <input id="infeed-enabled" disabled type="checkbox" role="switch" aria-label="Infeed" autocomplete="off">
           <span aria-hidden="true"></span>
         </label>
       </div>
+      <p class="infeed-hint" id="infeed-summary" role="status"></p>
     </div>
     <div class="responder-content" id="infeed-page" hidden>
       <header class="tickets-header">
@@ -95,17 +96,14 @@
         <label class="hold-setting">
           Hold for manual release
           <span class="infeed-control">
-            <input id="hold-enabled" type="checkbox" role="switch" aria-label="Hold for manual release" checked autocomplete="off">
+            <input id="hold-enabled" disabled type="checkbox" role="switch" aria-label="Hold for manual release" checked autocomplete="off">
             <span aria-hidden="true"></span>
           </span>
         </label>
       </header>
       <ul id="ticket-list" aria-label="Tickets"></ul>
       <p class="infeed-empty" id="no-tickets">No tickets yet</p>
-      <div class="ticket-preview-tools">
-        <p class="infeed-hint" id="preview-hint">Turn on Infeed to try a sample ticket.</p>
-        <button type="button" class="preview-button" id="sample-ticket" aria-describedby="preview-hint" disabled>Add sample ticket</button>
-      </div>
+      <p class="infeed-hint" id="infeed-status" role="status"></p>
     </div>
   </main>
   <dialog id="ticket-panel" aria-labelledby="ticket-title" closedby="any">

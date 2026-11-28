@@ -504,18 +504,15 @@ main:has(#responder-home:not([hidden])) #workspace-title {
 
 #infeed-page { padding-top: 24px; }
 
-.tickets-header, .ticket-breadcrumb, .hold-setting, .ticket-preview-tools {
+.tickets-header, .ticket-breadcrumb, .hold-setting {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 6px 8px;
 }
 
-.tickets-header, .ticket-preview-tools {
-  justify-content: space-between;
-}
-
 .tickets-header {
+  justify-content: space-between;
   padding-bottom: 16px;
   border-bottom: 1px solid #383838;
 }
@@ -530,11 +527,10 @@ main:has(#responder-home:not([hidden])) #workspace-title {
 .ticket-breadcrumb h1 { margin: 0; font-size: 18px; }
 .hold-setting .infeed-control { padding: 0; }
 
-.ticket-preview-tools {
+#infeed-status {
   border-top: 1px solid #383838;
   padding-top: 12px;
 }
-.ticket-preview-tools p { margin: 0; }
 
 
 .infeed-hint, .infeed-empty, .ticket-row span {
@@ -620,6 +616,7 @@ main:has(#responder-home:not([hidden])) #workspace-title {
 #ticket-panel.is-visible { transform: translateX(0); }
 #ticket-panel h2 { margin: 0; font-size: 18px; }
 #ticket-panel h3 { margin: 24px 0 4px; font-size: 14px; }
+#ticket-body { white-space: pre-wrap; overflow-wrap: anywhere; }
 #ticket-action { color: #bcbcbc; }
 
 .responder-content :focus-visible {

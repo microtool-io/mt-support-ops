@@ -40,69 +40,121 @@ const infeedLink = responderHome.querySelector('a');
 const infeedPage = document.getElementById('infeed-page');
 const infeedEnabled = document.getElementById('infeed-enabled');
 const holdEnabled = document.getElementById('hold-enabled');
-const sampleButton = document.getElementById('sample-ticket');
 const ticketList = document.getElementById('ticket-list');
 const ticketPanel = document.getElementById('ticket-panel');
 const releaseButton = document.getElementById('release-ticket');
 let openTicket;
 
-function updatePreview() {
-  sampleButton.disabled = !infeedEnabled.checked;
-  document.getElementById('preview-hint').textContent = infeedEnabled.checked
-    ? 'Local preview with sample tickets only.'
-    : 'Turn on Infeed to try a sample ticket.';
-}
+const states = {
+  held: ['Held', 'Waiting for manual release.'],
+  automatic: ['Ready automatically', 'Prepared internal note: “AI checked”.'],
+  manual: ['Ready after manual release', 'Prepared internal note: “AI checked, released from block manually”.'],
+};
+let feed;
+let savingFeed = false;
+let feedRequest = 0;
+let connected = false;
+const rows = new Map();
 
-infeedEnabled.addEventListener('change', updatePreview);
+function feedStatus(message) {
+  for (const id of ['infeed-summary', 'infeed-status']) document.getElementById(id).textContent = message;
+}
 
 function showTicketAction(ticket) {
-  const actions = {
-    'Held': 'Waiting for manual release. Releasing would add the internal note “AI checked, released from block manually”.',
-    'Released automatically': 'Would add the internal note “AI checked”.',
-    'Released manually': 'Would add the internal note “AI checked, released from block manually”.',
-  };
-  document.getElementById('ticket-action').textContent = actions[ticket.state];
-  releaseButton.hidden = ticket.state !== 'Held';
-  ticket.status.textContent = ticket.state;
+  document.getElementById('ticket-action').textContent = states[ticket.state][1] + ' HubSpot has not been changed.';
+  releaseButton.hidden = ticket.state !== 'held';
+  releaseButton.disabled = savingFeed;
 }
 
-sampleButton.addEventListener('click', () => {
-  if (!infeedEnabled.checked) return;
-  const number = ticketList.children.length + 1;
-  const item = document.createElement('li');
-  const row = document.createElement('button');
-  row.type = 'button';
-  row.className = 'ticket-row';
-  row.setAttribute('aria-haspopup', 'dialog');
-  const examples = [
-    ['Support hours', 'Could you confirm the support hours for our team?'],
-    ['Billing contact update', 'How can we update our billing contact?'],
-    ['Account invitation', 'Could you help us resend an invitation to a teammate?'],
-  ];
-  const [subject, body] = examples[(number - 1) % examples.length];
-  const title = number <= examples.length ? subject : subject + ' #' + number;
-  const status = document.createElement('span');
-  const ticket = { state: holdEnabled.checked ? 'Held' : 'Released automatically', status };
-  status.textContent = ticket.state;
-  row.append(title, status);
-  item.append(row);
-  ticketList.append(item);
-  document.getElementById('no-tickets').hidden = true;
-  row.addEventListener('click', () => {
-    openTicket = ticket;
-    document.getElementById('ticket-title').textContent = title;
-    document.getElementById('ticket-body').textContent = body;
-    showTicketAction(ticket);
-    openDialog(ticketPanel);
-  });
-});
+async function openTicketPanel(id) {
+  openTicket = id;
+  document.getElementById('ticket-title').textContent = 'Ticket #' + id;
+  const body = document.getElementById('ticket-body');
+  body.textContent = 'Loading incoming message…';
+  showTicketAction(feed.tickets.find(ticket => ticket.id === id));
+  openDialog(ticketPanel);
+  try {
+    const response = await fetch('/api/infeed/tickets/' + id, { signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error();
+    const { text } = await response.json();
+    if (openTicket === id) body.textContent = text || 'No incoming plain-text message is available.';
+  } catch {
+    if (openTicket === id) body.textContent = 'Could not read the message from HubSpot. Reopen this ticket to retry.';
+  }
+}
 
-releaseButton.addEventListener('click', () => {
-  if (openTicket?.state !== 'Held') return;
-  openTicket.state = 'Released manually';
-  showTicketAction(openTicket);
-  ticketPanel.querySelector('header button').focus();
-});
+function renderFeed(data) {
+  feed = data;
+  hubSpotSection.hidden = !connected && !data.enabled && !data.tickets.length;
+  renderWorkspace();
+  infeedEnabled.checked = data.enabled;
+  holdEnabled.checked = data.hold;
+  infeedEnabled.disabled = savingFeed || (!connected && !data.enabled);
+  holdEnabled.disabled = savingFeed;
+  document.getElementById('no-tickets').hidden = data.tickets.length > 0;
+  let message = 'Infeed is off.';
+  if (data.enabled) {
+    message = data.problem || (data.busy ? 'Checking Help Desk…' : 'Waiting for the next Help Desk check.');
+    if (data.checked) message = (data.problem || 'Listening for Help Desk tickets.') +
+      ' Last successful check: ' + new Date(data.checked).toLocaleTimeString() + '.';
+  }
+  if (data.enabled && data.pending) message += ' Awaiting processing or a ticket link: ' + data.pending + '.';
+  feedStatus(message);
+  // Keep existing buttons in place so refreshing preserves keyboard focus.
+  data.tickets.forEach((ticket, index) => {
+    let row = rows.get(ticket.id);
+    if (!row) {
+      const item = document.createElement('li');
+      row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'ticket-row';
+      row.setAttribute('aria-haspopup', 'dialog');
+      row.append('Ticket #' + ticket.id, document.createElement('span'));
+      row.addEventListener('click', () => openTicketPanel(ticket.id));
+      item.append(row);
+      ticketList.insertBefore(item, ticketList.children[index] ?? null);
+      rows.set(ticket.id, row);
+    }
+    row.lastChild.textContent = states[ticket.state][0];
+    if (openTicket === ticket.id) showTicketAction(ticket);
+  });
+}
+
+async function loadFeed(path = '') {
+  const sequence = ++feedRequest;
+  try {
+    const response = await fetch('/api/infeed' + path, {
+      method: path ? 'POST' : 'GET', signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) throw new Error();
+    const data = await response.json();
+    if (sequence === feedRequest) renderFeed(data);
+  } catch {
+    if (sequence !== feedRequest) return;
+    if (feed) renderFeed(feed);
+    feedStatus(path ? 'Could not confirm the change. Refresh to check its saved state.' : 'Could not load the infeed.');
+    if (path && openTicket) document.getElementById('ticket-action').textContent = 'Could not confirm release. Reopen the ticket to check.';
+  }
+}
+
+async function changeFeed(path) {
+  if (savingFeed) return;
+  savingFeed = true;
+  infeedEnabled.disabled = holdEnabled.disabled = releaseButton.disabled = true;
+  await loadFeed(path);
+  savingFeed = false;
+  if (feed) {
+    infeedEnabled.disabled = !connected && !feed.enabled;
+    holdEnabled.disabled = releaseButton.disabled = false;
+  }
+}
+
+infeedEnabled.addEventListener('change', () => changeFeed('/enabled/' + (infeedEnabled.checked ? 'on' : 'off')));
+holdEnabled.addEventListener('change', () => changeFeed('/hold/' + (holdEnabled.checked ? 'on' : 'off')));
+releaseButton.addEventListener('click', () => changeFeed('/tickets/' + openTicket + '/release'));
+setInterval(() => {
+  if (!savingFeed && !document.hidden && (!infeedPage.hidden || !responderHome.hidden)) void loadFeed();
+}, 5000);
 ticketPanel.querySelector('header button').addEventListener('click', () => dismissDialog(ticketPanel));
 ticketPanel.addEventListener('close', () => { openTicket = null; });
 
@@ -114,7 +166,6 @@ function renderWorkspace() {
   responderHome.hidden = hubSpotSection.hidden || !onResponder || onInfeed;
   infeedPage.hidden = hubSpotSection.hidden || !onInfeed;
   if (infeedPage.hidden && ticketPanel.open) dismissDialog(ticketPanel);
-  updatePreview();
   const current = onResponder ? (hubSpotSection.hidden ? null : responderLink) : selectedArea;
   for (const link of document.querySelectorAll('.workspace-link[aria-current]')) {
     link.removeAttribute('aria-current');
@@ -149,7 +200,9 @@ async function refreshHubSpotConnection() {
   } catch {
     // A failed check leaves the sidebar connection hidden.
   } finally {
-    hubSpotSection.hidden = status !== 'connected';
+    connected = status === 'connected';
+    hubSpotSection.hidden = !connected && !feed?.enabled && !feed?.tickets.length;
+    if (!savingFeed) void loadFeed();
     renderWorkspace();
     const result = hubSpotMessages.get(status) ?? hubSpotMessages.get('unavailable');
     const time = new Date().toLocaleTimeString(undefined, { timeStyle: 'medium' });
