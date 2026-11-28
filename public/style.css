@@ -205,6 +205,13 @@ dialog {
   font: 500 14px/1.4 'Instrument Sans', system-ui, sans-serif;
 }
 
+.connection-row select {
+  max-width: 100%;
+  min-width: 0;
+  font: inherit;
+  color-scheme: dark;
+}
+
 @media (max-width: 520px) {
   .settings-pane, .connection-row {
     padding: 12px;

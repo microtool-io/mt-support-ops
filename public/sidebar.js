@@ -43,12 +43,21 @@ const holdEnabled = document.getElementById('hold-enabled');
 const ticketList = document.getElementById('ticket-list');
 const ticketPanel = document.getElementById('ticket-panel');
 const releaseButton = document.getElementById('release-ticket');
+const noteSetting = document.getElementById('release-notes-enabled');
+const noteStatus = {
+  queued: 'AI Responder note queued.',
+  verifying: 'Checking HubSpot for the release note.',
+  added: 'AI Responder note verified on this ticket.',
+  review: 'Check this ticket in HubSpot. Note delivery could not be verified.',
+  permission: 'Check the HubSpot Service Key and its ticket permissions.',
+  account: 'Delivery paused. The HubSpot account has changed.',
+};
 let openTicket;
 
 const states = {
   held: ['Held', 'Waiting for manual release.'],
-  automatic: ['Ready automatically', 'Prepared internal note: “AI checked”.'],
-  manual: ['Ready after manual release', 'Prepared internal note: “AI checked, released from block manually”.'],
+  automatic: ['Released automatically', 'Released automatically. No note was queued.'],
+  manual: ['Released manually', 'Released locally.'],
 };
 let feed;
 let savingFeed = false;
@@ -61,7 +70,10 @@ function feedStatus(message) {
 }
 
 function showTicketAction(ticket) {
-  document.getElementById('ticket-action').textContent = states[ticket.state][1] + ' HubSpot has not been changed.';
+  let action = noteStatus[ticket.note] ?? states[ticket.state][1];
+  if (ticket.state === 'held' && feed.notesEnabled) action = 'Release will add an AI Responder internal note to this ticket.';
+  if (ticket.note && ticket.note !== 'added' && (!feed.notesEnabled || (ticket.state === 'automatic' && !feed.automaticNotes))) action += ' Note delivery is switched off.';
+  document.getElementById('ticket-action').textContent = action;
   releaseButton.hidden = ticket.state !== 'held';
   releaseButton.disabled = savingFeed;
 }
@@ -90,6 +102,8 @@ function renderFeed(data) {
   hubSpotSection.hidden = !connected && !data.enabled && !data.tickets.length;
   renderWorkspace();
   infeedEnabled.checked = data.enabled;
+  noteSetting.value = data.automaticNotes ? 'all' : data.notesEnabled ? 'on' : 'off';
+  noteSetting.disabled = savingFeed || (!connected && !data.notesEnabled);
   holdEnabled.checked = data.hold;
   infeedEnabled.disabled = savingFeed || (!connected && !data.enabled);
   holdEnabled.disabled = savingFeed;
@@ -135,6 +149,8 @@ async function loadFeed(path = '') {
     if (sequence !== feedRequest) return;
     if (feed) renderFeed(feed);
     feedStatus(path ? 'Could not confirm the change. Refresh to check its saved state.' : 'Could not load the infeed.');
+    if (path.startsWith('/notes/')) document.getElementById('release-notes-error').textContent =
+      'Could not confirm the note setting. Check the configured HubSpot account and refresh.';
     if (path && openTicket) document.getElementById('ticket-action').textContent = 'Could not confirm release. Reopen the ticket to check.';
   }
 }
@@ -142,15 +158,19 @@ async function loadFeed(path = '') {
 async function changeFeed(path) {
   if (savingFeed) return;
   savingFeed = true;
+  noteSetting.disabled = true;
+  document.getElementById('release-notes-error').textContent = '';
   infeedEnabled.disabled = holdEnabled.disabled = releaseButton.disabled = true;
   await loadFeed(path);
   savingFeed = false;
   if (feed) {
     infeedEnabled.disabled = !connected && !feed.enabled;
+    noteSetting.disabled = !connected && !feed.notesEnabled;
     holdEnabled.disabled = releaseButton.disabled = false;
   }
 }
 
+noteSetting.addEventListener('change', () => changeFeed('/notes/' + noteSetting.value));
 infeedEnabled.addEventListener('change', () => changeFeed('/enabled/' + (infeedEnabled.checked ? 'on' : 'off')));
 holdEnabled.addEventListener('change', () => changeFeed('/hold/' + (holdEnabled.checked ? 'on' : 'off')));
 releaseButton.addEventListener('click', () => changeFeed('/tickets/' + openTicket + '/release'));

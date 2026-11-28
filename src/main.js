@@ -44,6 +44,8 @@ const server = createServer((request, response) => {
 });
 server.listen(port, '127.0.0.1', () => {
   console.log('http://127.0.0.1:' + server.address().port);
+  void infeed.notes.work();
+  setInterval(() => void infeed.notes.work(), 5000).unref();
   void infeed.poll();
   setInterval(() => void infeed.poll(), 30000).unref();
 });

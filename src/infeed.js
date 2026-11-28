@@ -1,3 +1,5 @@
+import { createReleaseNotes } from './release-notes.js';
+
 const base = 'https://api.hubapi.com/conversations/v3/conversations/';
 const validId = value => typeof value === 'string' && /^\d{1,24}$/.test(value);
 const overlap = 15 * 60_000;
@@ -26,6 +28,7 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
     ) STRICT;
     CREATE INDEX IF NOT EXISTS responder_work_due ON responder_work(due, thread);
   `);
+  const notes = createReleaseNotes(db, key, request, now);
   const at = db.prepare('SELECT enabled, hold FROM responder_settings WHERE at <= ? ORDER BY at DESC, rowid DESC LIMIT 1');
   const current = () => at.get(Number.MAX_SAFE_INTEGER) ?? defaults;
   const lookup = db.prepare('SELECT * FROM responder_tickets WHERE id = ?');
@@ -198,8 +201,16 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
         const first = await page(signal, 'threads', { associatedTicketId: id, sort: 'id', limit: '1' });
         if (!first.items.length || signal.aborted) return false;
         if (first.items[0].id === job.thread) {
-          db.prepare('INSERT INTO responder_tickets VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING')
-            .run(id, job.thread, arrived, settings.hold ? 'held' : 'automatic');
+          db.exec('BEGIN IMMEDIATE');
+          try {
+            const saved = db.prepare('INSERT INTO responder_tickets VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING')
+              .run(id, job.thread, arrived, settings.hold ? 'held' : 'automatic');
+            if (saved.changes && !settings.hold) notes.enqueue(id, arrived);
+            db.exec('COMMIT');
+          } catch (error) {
+            db.exec('ROLLBACK');
+            throw error;
+          }
         }
       }
       return true;
@@ -257,8 +268,12 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
   function snapshot() {
     const { enabled, hold } = current();
     const tickets = db.prepare('SELECT id, arrived, state FROM responder_tickets ORDER BY arrived DESC, id DESC').all();
+    const deliveries = new Map(db.prepare('SELECT ticket, message FROM release_notes').all().map(row => [row.ticket, row.message]));
+    for (const ticket of tickets) {
+      if (deliveries.has(ticket.id)) ticket.note = deliveries.get(ticket.id);
+    }
     const pending = db.prepare('SELECT count(*) AS count FROM responder_work').get().count;
-    return { enabled: !!enabled, hold: !!hold, tickets, pending, checked: checkpoint.get()?.checked ?? null, problem, busy };
+    return { notesEnabled: notes.enabled(), automaticNotes: notes.automatic(), enabled: !!enabled, hold: !!hold, tickets, pending, checked: checkpoint.get()?.checked ?? null, problem, busy };
   }
 
   async function detail(id) {
@@ -276,11 +291,19 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
   }
 
   function release(id) {
-    db.prepare("UPDATE responder_tickets SET state = 'manual' WHERE id = ? AND state = 'held'").run(id);
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      const result = db.prepare("UPDATE responder_tickets SET state = 'manual' WHERE id = ? AND state = 'held'").run(id);
+      if (result.changes) notes.enqueue(id);
+      db.exec('COMMIT');
+    } catch (error) {
+      db.exec('ROLLBACK');
+      throw error;
+    }
     return !!lookup.get(id);
   }
 
-  return { configure, snapshot, poll, detail, release };
+  return { configure, snapshot, poll, detail, release, notes };
 }
 
 export async function serveInfeed(req, res, port, feed, path) {
@@ -303,6 +326,11 @@ export async function serveInfeed(req, res, port, feed, path) {
     }
     if (ticket?.[2] && req.method === 'POST') {
       if (!feed.release(ticket[1])) return send(404, { error: 'Unknown ticket' });
+      void feed.notes.work();
+      return send(200, feed.snapshot());
+    }
+    if (req.method === 'POST' && ['/api/infeed/notes/on', '/api/infeed/notes/off', '/api/infeed/notes/all'].includes(path)) {
+      await feed.notes.configure(!path.endsWith('/off'), path.endsWith('/all'));
       return send(200, feed.snapshot());
     }
     const setting = /^\/api\/infeed\/(enabled|hold)\/(on|off)$/.exec(path);

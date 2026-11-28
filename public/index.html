@@ -113,7 +113,7 @@
     </header>
     <p id="ticket-body"></p>
     <h3>Responder action</h3>
-    <p id="ticket-action"></p>
+    <p id="ticket-action" role="status"></p>
     <button type="button" class="preview-button" id="release-ticket">Release</button>
   </dialog>
   <dialog id="area-dialog" aria-labelledby="new-area-title" closedby="any">
@@ -154,6 +154,15 @@
           </div>
           <button class="connection-test" type="button" aria-describedby="hubspot-status">Check connection</button>
         </div>
+        <label class="connection-row">
+          Internal notes on release
+          <select id="release-notes-enabled" disabled autocomplete="off">
+            <option value="off">Off</option>
+            <option value="on">Manual releases only</option>
+            <option value="all">Manual and automatic releases</option>
+          </select>
+        </label>
+        <p id="release-notes-error" class="connection-status" role="status"></p>
       </div>
     </div>
   </dialog>

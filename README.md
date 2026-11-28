@@ -35,8 +35,8 @@ Use a HubSpot developer test account with Help Desk set up and sample data. A
 HubSpot Super Admin or a user with Developer tools access can create a [Service
 Key](https://developers.hubspot.com/docs/apps/developer-platform/build-apps/authentication/account-service-keys)
 under **Development → Keys → Service Keys**. Give it a descriptive name such as
-`mt-support-ops sandbox` and select only `conversations.read`. The label is for
-your own reference. This scope can also read conversations. The app's check
+`AI Responder` and select `conversations.read` for intake. HubSpot uses the key name
+in the **Created via** label on new notes. This scope can also read conversations. The app's check
 requests only inbox metadata.
 
 ### Company-managed installation
@@ -70,14 +70,22 @@ an unused key from **Service Keys** in HubSpot.
 | Infeed at arrival | Hold at arrival | Local result |
 | --- | --- | --- |
 | Off | Either | Skip the ticket. |
-| On | On | Show **Held**. Selecting **Release** prepares the internal note “AI checked, released from block manually”. |
-| On | Off | Prepare the internal note “AI checked” automatically. |
+| On | On | Show **Held**. Selecting **Release** records a manual decision and queues an internal note if release notes are enabled. |
+| On | Off | Release automatically and queue an AI Responder note if automatic notes were enabled at arrival and remain enabled. |
 
 Arrival is the time of the first incoming customer message in the ticket’s first linked conversation. A thread can start with an outgoing message. The first customer reply then determines which Infeed and Hold settings apply. Spam, archived threads and regular inboxes are excluded. The ticket ID prevents duplicate decisions across retries and restarts.
 
 The server reads Help Desk activity in timestamp order. Each inbox saves its page cursor and the queued thread IDs together in the private installation database. Scans overlap by 15 minutes. Once discovered, a conversation awaiting its ticket link stays in the queue beyond that window. The server retries it with increasing delays of up to one hour while Infeed is on. Turning Infeed off cancels active intake requests and pauses all responder reads of HubSpot ticket messages. Turning it back on starts a fresh discovery window. Previously discovered work resumes; tickets that had not been discovered before switching off may be missed. Existing ticket decisions survive settings changes and upgrades.
 
-The app makes read-only Conversations API calls. The note text is a proposed action. This version does not run an AI check, post a note, send a reply, or change the HubSpot ticket status. Ticket and thread IDs, arrival times, settings and decisions persist in the installation’s private SQLite database. The panel loads message text on demand and displays up to 8,000 characters. Keep a separate data directory per HubSpot account and restrict access to the server and its backups.
+The Conversations API is used for reads. Manual and automatic releases can add an internal CRM note. Neither release mode sends a customer reply or changes the HubSpot ticket status. Ticket and thread IDs, arrival times, settings and decisions persist in the installation’s private SQLite database. The panel loads message text on demand and displays up to 8,000 characters. Keep a separate data directory per HubSpot account and restrict access to the server and its backups.
+
+### Add a HubSpot note on release
+
+Use the same Service Key. Add `crm.objects.tickets.read` for verification and `crm.objects.tickets.write` for note creation. Ticket write grants broader access in HubSpot than this feature uses. In **Settings → Connections**, set **Internal notes on release** to **Manual and automatic releases** to cover both Hold modes, or **Manual releases only**. New installations start with notes off. An existing manual-only installation keeps that choice on upgrade. Automatic delivery covers new arrivals after opt-in. Existing releases are never backfilled.
+
+With Hold on, open a held ticket and choose **Release**. With Hold off, the responder releases new tickets automatically. The note identifies which release occurred. The app saves the decision and a unique note reference together. The ticket panel shows delivery progress and confirms when the internal **AI Responder** note is verified on the ticket. If the server loses the create response, it checks the ticket for that reference after restart. An uncertain send is never automatically repeated. If the panel asks for review, inspect the ticket timeline before taking further action.
+
+Use one private data directory per HubSpot account. Enabling delivery binds it to the verified HubSpot account. Disabling pauses queued work and verification. A request already sent can finish. Re-enabling with the same account resumes outstanding work.
 
 [Optional HubSpot note delivery checklist](docs/hubspot-release-notes.md)
 

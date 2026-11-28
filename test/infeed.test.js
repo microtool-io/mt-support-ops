@@ -15,6 +15,7 @@ function fixture() {
     assert.equal(options.redirect, 'error');
     calls.push(url.pathname);
     if (failure) return new Response(null, { status: failure });
+    if (url.pathname === '/account-info/v3/details') return Response.json({ portalId: 1 });
     if (url.pathname.endsWith('/inboxes')) return Response.json({ results: [{ id: '1', type: 'HELP_DESK' }] });
     const single = /\/threads\/(\d+)$/.exec(url.pathname);
     if (single) return Response.json(threads.find(t => t.id === single[1]));
@@ -107,4 +108,32 @@ test('switching off while a HubSpot read is in flight prevents insertion', async
   await pending;
   assert.equal(feed.snapshot().checked, null);
   assert.deepEqual(feed.snapshot().tickets, []);
+});
+
+
+test('automatic notes respect opt-in time, Hold at arrival and the saved decision on replay', async () => {
+  const f = fixture();
+  const feed = f.open();
+  feed.configure('enabled', true);
+  feed.configure('hold', false);
+  await feed.notes.configure(true); // Prior manual-only consent.
+  f.add('10');
+  f.tick();
+  await feed.notes.configure(true, true);
+  f.add('20');
+  f.tick();
+  feed.configure('hold', true);
+  f.add('30');
+  await feed.poll();
+  await feed.poll();
+  const result = () => f.open().snapshot().tickets.map(({ id, state, note }) => [id, state, note]);
+  assert.deepEqual(result(), [
+    ['30', 'held', undefined], ['20', 'automatic', 'queued'], ['10', 'automatic', undefined],
+  ]);
+  feed.release('30');
+  feed.release('30');
+  feed.release('20');
+  assert.deepEqual(result(), [
+    ['30', 'manual', 'queued'], ['20', 'automatic', 'queued'], ['10', 'automatic', undefined],
+  ]);
 });
