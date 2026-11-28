@@ -30,6 +30,7 @@ function installation(t, pageSize = 100) {
   async function read(url, options) {
     assert.equal(url.origin, 'https://api.hubapi.com');
     assert.equal(options.method ?? 'GET', 'GET');
+    if (url.pathname === '/account-info/v3/details') return Response.json({ portalId: 1 });
     const q = url.searchParams;
     if (url.pathname.endsWith('/inboxes')) return Response.json({ results: [{ type: 'HELP_DESK', id: '1' }] });
     const detail = /\/threads\/(\d+)(\/messages)?$/.exec(url.pathname);
@@ -77,7 +78,7 @@ function installation(t, pageSize = 100) {
 test('activity cutoff uses timestamp sort and preserves all threads tied at a page boundary', async t => {
   const env = installation(t, 1);
   env.add('11', env.clock() - 60000);
-  env.feed.configure('enabled', true);
+  await env.feed.configure('enabled', true);
   const tied = env.clock();
   for (const id of ['12', '13', '14']) env.add(id, tied);
   await env.feed.poll();
@@ -94,7 +95,7 @@ test('activity cutoff uses timestamp sort and preserves all threads tied at a pa
 
 test('501 pages resume after poll budget, failed read and process reopen without losing a tied timestamp', async t => {
   const env = installation(t, 1);
-  env.feed.configure('enabled', true);
+  await env.feed.configure('enabled', true);
   const start = env.clock();
   for (let i = 1; i <= 501; i++) env.add(String(i), start);
   await env.feed.poll();
@@ -115,13 +116,13 @@ test('501 pages resume after poll budget, failed read and process reopen without
 
 test('an unlinked thread is recovered beyond the overlap after restart without new activity', async t => {
   const env = installation(t);
-  env.feed.configure('enabled', true);
+  await env.feed.configure('enabled', true);
   const thread = env.add('21', env.clock());
   delete thread.threadAssociations;
   await env.feed.poll();
   assert.equal(env.feed.snapshot().pending, 1);
   env.clock(20 * 60_000);
-  env.feed.configure('hold', false);
+  await env.feed.configure('hold', false);
   await env.feed.poll();
   env.restart();
   env.clock(5 * 60_000);
@@ -137,11 +138,11 @@ test('an unlinked thread is recovered beyond the overlap after restart without n
 
 test('outbound-first conversations follow the first incoming message across Hold and Infeed changes', async t => {
   const env = installation(t, 1);
-  env.feed.configure('enabled', true);
+  await env.feed.configure('enabled', true);
   async function conversation(id, field, value) {
     const thread = env.add(id, env.clock());
     env.clock();
-    env.feed.configure(field, value);
+    await env.feed.configure(field, value);
     const arrived = env.clock();
     thread.latestMessageTimestamp = thread.latestMessageReceivedTimestamp = new Date(arrived).toISOString();
     env.messages.set(id, [
@@ -150,7 +151,7 @@ test('outbound-first conversations follow the first incoming message across Hold
       { type: 'COMMENT', direction: 'INCOMING', createdAt: thread.createdAt },
       { type: 'MESSAGE', direction: 'INCOMING', createdAt: new Date(arrived).toISOString() },
     ]);
-    if (!value && field === 'enabled') { env.clock(); env.feed.configure('enabled', true); }
+    if (!value && field === 'enabled') { env.clock(); await env.feed.configure('enabled', true); }
     await env.feed.poll();
     return arrived;
   }
@@ -164,7 +165,7 @@ test('outbound-first conversations follow the first incoming message across Hold
 
 test('an expired continuation replays the same window without duplicating decisions', async t => {
   const env = installation(t, 1);
-  env.feed.configure('enabled', true);
+  await env.feed.configure('enabled', true);
   const stamp = env.clock();
   for (let i = 1; i <= 8; i++) env.add(String(i), stamp);
   await env.feed.poll();
@@ -178,4 +179,24 @@ test('an expired continuation replays the same window without duplicating decisi
   assert.equal(env.feed.snapshot().problem, '');
   assert.equal(env.feed.snapshot().checked, stamp);
   assert.equal(env.feed.snapshot().tickets.length, 8);
+});
+
+test('resume discovers a ticket from before Off and excludes a ticket that arrived during Off', async t => {
+  const env = installation(t);
+  await env.feed.configure('enabled', true);
+  await env.feed.configure('hold', false);
+  env.add('41', env.clock());
+  env.clock();
+  await env.feed.configure('enabled', false);
+  env.add('42', env.clock());
+  env.clock(30 * 60_000);
+  env.restart();
+  await env.feed.poll();
+  assert.equal(env.scans.length, 0);
+  await env.feed.configure('enabled', true);
+  env.add('43', env.clock());
+  await env.feed.poll();
+  assert.deepEqual(env.feed.snapshot().tickets.map(({ id, note }) => [id, note]), [
+    ['43', 'queued'], ['41', 'queued'],
+  ]);
 });

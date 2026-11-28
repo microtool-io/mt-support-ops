@@ -46,17 +46,17 @@ test('arrival-time settings survive restart, filtering and repeated polls; relea
   await feed.poll();
   assert.deepEqual(f.calls, []);
   f.tick();
-  feed.configure('enabled', true);
+  await feed.configure('enabled', true);
   f.add('20');
   f.tick();
-  feed.configure('hold', false);
+  await feed.configure('hold', false);
   f.add('30');
   await feed.poll();
   f.tick();
-  feed.configure('enabled', false);
+  await feed.configure('enabled', false);
   f.add('40');
   f.tick();
-  feed.configure('enabled', true);
+  await feed.configure('enabled', true);
   f.add('10'); // New thread for an older ticket
   f.add('50', { spam: true });
   f.add('51', { archived: true });
@@ -80,7 +80,7 @@ test('arrival-time settings survive restart, filtering and repeated polls; relea
 test('rate limiting preserves the checkpoint and retries without duplicating tickets', async () => {
   const f = fixture();
   const feed = f.open();
-  feed.configure('enabled', true);
+  await feed.configure('enabled', true);
   f.add('10');
   f.fail(429);
   await feed.poll();
@@ -100,10 +100,10 @@ test('switching off while a HubSpot read is in flight prevents insertion', async
   const db = new DatabaseSync(':memory:');
   let resume;
   const response = new Promise(resolve => { resume = resolve; });
-  const feed = createInfeed(db, 'test', () => response);
-  feed.configure('enabled', true);
+  const feed = createInfeed(db, 'test', url => url.pathname === '/account-info/v3/details' ? Response.json({ portalId: 1 }) : response);
+  await feed.configure('enabled', true);
   const pending = feed.poll();
-  feed.configure('enabled', false);
+  await feed.configure('enabled', false);
   resume(Response.json({ results: [{ id: '1', type: 'HELP_DESK' }] }));
   await pending;
   assert.equal(feed.snapshot().checked, null);
@@ -111,29 +111,27 @@ test('switching off while a HubSpot read is in flight prevents insertion', async
 });
 
 
-test('automatic notes respect opt-in time, Hold at arrival and the saved decision on replay', async () => {
+test('turning on Infeed arms both release paths; arrival settings survive replay', async () => {
   const f = fixture();
   const feed = f.open();
-  feed.configure('enabled', true);
-  feed.configure('hold', false);
-  await feed.notes.configure(true); // Prior manual-only consent.
   f.add('10');
   f.tick();
-  await feed.notes.configure(true, true);
+  await feed.configure('enabled', true);
+  await feed.configure('hold', false);
   f.add('20');
   f.tick();
-  feed.configure('hold', true);
+  await feed.configure('hold', true);
   f.add('30');
   await feed.poll();
   await feed.poll();
   const result = () => f.open().snapshot().tickets.map(({ id, state, note }) => [id, state, note]);
   assert.deepEqual(result(), [
-    ['30', 'held', undefined], ['20', 'automatic', 'queued'], ['10', 'automatic', undefined],
+    ['30', 'held', undefined], ['20', 'automatic', 'queued'],
   ]);
   feed.release('30');
   feed.release('30');
   feed.release('20');
   assert.deepEqual(result(), [
-    ['30', 'manual', 'queued'], ['20', 'automatic', 'queued'], ['10', 'automatic', undefined],
+    ['30', 'manual', 'queued'], ['20', 'automatic', 'queued'],
   ]);
 });

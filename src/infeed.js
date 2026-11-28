@@ -35,7 +35,12 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
   const checkpoint = db.prepare('SELECT checked FROM responder_sync WHERE id = 1');
   // Each enabled interval owns its network requests, including ticket detail reads.
   let gate = new AbortController();
+  // A read-only installation must explicitly turn on the new write-capable infeed.
+  if (current().enabled && !(notes.enabled() && notes.automatic())) {
+    db.prepare('INSERT INTO responder_settings VALUES (?, 0, ?)').run(now(), current().hold);
+  }
   if (!current().enabled) gate.abort();
+  let enableRequest = 0;
   let busy = false;
   let problem = '';
   let retryAt = 0;
@@ -88,16 +93,22 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
     } while (after);
   }
 
-  function configure(field, value) {
-    const settings = { ...current() };
+  async function configure(field, value) {
     if (!['enabled', 'hold'].includes(field) || typeof value !== 'boolean') throw new Error('Invalid setting');
     if (field === 'enabled' && value && !key?.trim()) throw new Error('HubSpot key required');
-    if (settings[field] === Number(value)) return;
-    settings[field] = Number(value);
+    const revision = field === 'enabled' ? ++enableRequest : enableRequest;
+    if (current()[field] === Number(value)) return;
+    const account = field === 'enabled' && value ? await notes.accountId() : null;
+    if (field === 'enabled' && revision !== enableRequest) throw new Error('Infeed setting superseded');
+    const settings = { ...current(), [field]: Number(value) };
+    const changedAt = now();
     db.exec('BEGIN IMMEDIATE');
     try {
-      db.prepare('INSERT INTO responder_settings VALUES (?, ?, ?)').run(now(), settings.enabled, settings.hold);
-      if (field === 'enabled' && value) db.exec('DELETE FROM responder_scans; DELETE FROM responder_cursors');
+      if (account) {
+        if (!notes.automatic()) db.exec('DELETE FROM responder_scans; DELETE FROM responder_cursors');
+        notes.bind(account, changedAt);
+      }
+      db.prepare('INSERT INTO responder_settings VALUES (?, ?, ?)').run(changedAt, settings.enabled, settings.hold);
       db.exec('COMMIT');
     } catch (error) {
       db.exec('ROLLBACK');
@@ -159,6 +170,9 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
           const received = Date.parse(thread.latestMessageReceivedTimestamp);
           if (String(thread.inboxId) !== inbox || thread.archived || thread.spam || !validId(thread.id) ||
               !Number.isFinite(received) || received < first || received > scan.started) continue;
+          const created = Date.parse(thread.createdAt);
+          if (Number.isFinite(created) && created <= received && !at.get(created)?.enabled &&
+              !db.prepare('SELECT 1 FROM responder_settings WHERE enabled=1 AND at BETWEEN ? AND ? LIMIT 1').get(created, received)) continue;
           const ids = ticketIds(thread);
           if (!ids.length || ids.some(id => !lookup.get(id))) enqueue.run(thread.id, inbox, started);
         }
@@ -196,7 +210,8 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
       const arrived = Date.parse(message.createdAt);
       if (!Number.isFinite(arrived) || arrived > now()) return false;
       const settings = at.get(arrived);
-      if (!settings?.enabled) return true;
+      const activation = db.prepare('SELECT since FROM automatic_note_settings WHERE id=1').get();
+      if (!settings?.enabled || !activation || arrived < activation.since) return true;
       for (const id of unknown) {
         const first = await page(signal, 'threads', { associatedTicketId: id, sort: 'id', limit: '1' });
         if (!first.items.length || signal.aborted) return false;
@@ -205,7 +220,7 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
           try {
             const saved = db.prepare('INSERT INTO responder_tickets VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING')
               .run(id, job.thread, arrived, settings.hold ? 'held' : 'automatic');
-            if (saved.changes && !settings.hold) notes.enqueue(id, arrived);
+            if (saved.changes && !settings.hold) notes.enqueue(id);
             db.exec('COMMIT');
           } catch (error) {
             db.exec('ROLLBACK');
@@ -235,10 +250,7 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
     busy = true;
     const started = now();
     try {
-      const first = db.prepare(`
-        SELECT min(at) AS start FROM responder_settings
-        WHERE enabled = 1 AND rowid > (SELECT coalesce(max(rowid), 0) FROM responder_settings WHERE enabled = 0)
-      `).get().start;
+      const first = db.prepare('SELECT since FROM automatic_note_settings WHERE id=1').get().since;
       let found = false;
       let checked = started;
       for await (const inbox of pages(signal, 'inboxes', {})) {
@@ -273,7 +285,7 @@ export function createInfeed(db, key, request = fetch, now = Date.now) {
       if (deliveries.has(ticket.id)) ticket.note = deliveries.get(ticket.id);
     }
     const pending = db.prepare('SELECT count(*) AS count FROM responder_work').get().count;
-    return { notesEnabled: notes.enabled(), automaticNotes: notes.automatic(), enabled: !!enabled, hold: !!hold, tickets, pending, checked: checkpoint.get()?.checked ?? null, problem, busy };
+    return { releaseNotesOnInfeed: true, notesEnabled: notes.enabled(), automaticNotes: notes.automatic(), enabled: !!enabled, hold: !!hold, tickets, pending, checked: checkpoint.get()?.checked ?? null, problem, busy };
   }
 
   async function detail(id) {
@@ -329,13 +341,9 @@ export async function serveInfeed(req, res, port, feed, path) {
       void feed.notes.work();
       return send(200, feed.snapshot());
     }
-    if (req.method === 'POST' && ['/api/infeed/notes/on', '/api/infeed/notes/off', '/api/infeed/notes/all'].includes(path)) {
-      await feed.notes.configure(!path.endsWith('/off'), path.endsWith('/all'));
-      return send(200, feed.snapshot());
-    }
     const setting = /^\/api\/infeed\/(enabled|hold)\/(on|off)$/.exec(path);
     if (setting && req.method === 'POST') {
-      feed.configure(setting[1], setting[2] === 'on');
+      await feed.configure(setting[1], setting[2] === 'on');
       if (setting[1] === 'enabled' && setting[2] === 'on') void feed.poll();
       return send(200, feed.snapshot());
     }

@@ -15,6 +15,7 @@ test('Off blocks every intake request, aborts a pending thread read and discards
   let requestSignal;
   let discover = true;
   const feed = createInfeed(db, 'synthetic', async (url, options) => {
+    if (url.pathname === '/account-info/v3/details') return Response.json({ portalId: 1 });
     urls.push(new URL(url));
     if (url.pathname.endsWith('/inboxes')) return Response.json({ results: [{ id: '1', type: 'HELP_DESK' }] });
     if (url.pathname.endsWith('/threads/7')) {
@@ -30,11 +31,11 @@ test('Off blocks every intake request, aborts a pending thread read and discards
   }, () => time);
   await feed.poll();
   assert.equal(urls.length, 0);
-  feed.configure('enabled', true);
+  await feed.configure('enabled', true);
   const oldPoll = feed.poll();
   await started;
   const count = urls.length;
-  feed.configure('enabled', false);
+  await feed.configure('enabled', false);
   for (let tick = 0; tick < 3; tick++) {
     time += 30_000;
     await feed.poll();
@@ -42,7 +43,7 @@ test('Off blocks every intake request, aborts a pending thread read and discards
   assert.equal(urls.length, count);
   assert.equal(requestSignal.aborted, true);
   discover = false;
-  feed.configure('enabled', true);
+  await feed.configure('enabled', true);
   resume();
   await oldPoll;
   assert.equal(urls.length, count);
@@ -50,7 +51,7 @@ test('Off blocks every intake request, aborts a pending thread read and discards
   assert.equal(feed.snapshot().checked, null);
   await feed.poll();
   const scan = urls.findLast(url => url.searchParams.has('latestMessageTimestampAfter'));
-  assert.equal(Date.parse(scan.searchParams.get('latestMessageTimestampAfter')), time - 1);
+  assert.equal(Date.parse(scan.searchParams.get('latestMessageTimestampAfter')), Date.parse(thread.latestMessageReceivedTimestamp) - 1);
 });
 
 test('Off prevents even an explicit message refresh on a previously accepted ticket', async t => {

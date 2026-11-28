@@ -50,34 +50,19 @@ export function createReleaseNotes(db, key, request = fetch, now = Date.now) {
     return String(portalId);
   }
 
-  async function configure(enabled, automatic = false) {
-    const account = enabled ? await accountId() : null;
-    db.exec('BEGIN IMMEDIATE');
-    try {
-      if (enabled) {
-        const saved = db.prepare(`INSERT INTO note_settings VALUES(1,?,1)
-          ON CONFLICT(id) DO UPDATE SET enabled=1 WHERE account=excluded.account`).run(account);
-        if (!saved.changes) throw new Error('HubSpot account changed');
-      } else {
-        db.prepare('UPDATE note_settings SET enabled=0').run();
-      }
-      if (enabled && automatic) {
-        db.prepare('INSERT INTO automatic_note_settings VALUES(1,?) ON CONFLICT DO NOTHING').run(now());
-      } else {
-        db.exec('DELETE FROM automatic_note_settings');
-      }
-      db.exec('COMMIT');
-    } catch (error) {
-      db.exec('ROLLBACK');
-      throw error;
-    }
+  // Called in the same transaction that turns intake on.
+  function bind(account, since) {
+    const saved = db.prepare(`INSERT INTO note_settings VALUES(1,?,1)
+      ON CONFLICT(id) DO UPDATE SET enabled=1 WHERE account=excluded.account`).run(account);
+    if (!saved.changes) throw new Error('HubSpot account changed');
+    db.prepare('INSERT INTO automatic_note_settings VALUES(1,?) ON CONFLICT DO NOTHING').run(since);
   }
 
-  function enqueue(ticket, automaticArrival = null) {
-    db.prepare(`INSERT INTO release_notes(ticket, account, reference, phase, message, due)
-      SELECT ?, account, ?, 'pending', 'queued', 0 FROM note_settings WHERE enabled=1
-        AND (? IS NULL OR EXISTS(SELECT 1 FROM automatic_note_settings WHERE since<=?))`)
-      .run(ticket, randomUUID(), automaticArrival, automaticArrival);
+  function enqueue(ticket) {
+    const saved = db.prepare(`INSERT INTO release_notes(ticket, account, reference, phase, message, due)
+      SELECT ?, account, ?, 'pending', 'queued', 0 FROM note_settings WHERE enabled=1`)
+      .run(ticket, randomUUID());
+    if (!saved.changes) throw new Error('Enable Infeed before releasing this ticket.');
   }
 
   async function findNote(job) {
@@ -171,5 +156,5 @@ export function createReleaseNotes(db, key, request = fetch, now = Date.now) {
       running = false;
     }
   }
-  return { configure, enqueue, work, enabled: () => !!settings.get()?.enabled, automatic: () => !!db.prepare('SELECT id FROM automatic_note_settings').get() };
+  return { accountId, bind, enqueue, work, enabled: () => !!settings.get()?.enabled, automatic: () => !!db.prepare('SELECT id FROM automatic_note_settings').get() };
 }

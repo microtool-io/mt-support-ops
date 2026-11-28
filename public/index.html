@@ -84,6 +84,7 @@
           <span aria-hidden="true"></span>
         </label>
       </div>
+      <p class="infeed-hint">Released tickets get an AI Responder internal note in HubSpot. Hold keeps the note pending until manual release.</p>
       <p class="infeed-hint" id="infeed-summary" role="status"></p>
     </div>
     <div class="responder-content" id="infeed-page" hidden>
@@ -154,15 +155,7 @@
           </div>
           <button class="connection-test" type="button" aria-describedby="hubspot-status">Check connection</button>
         </div>
-        <label class="connection-row">
-          Internal notes on release
-          <select id="release-notes-enabled" disabled autocomplete="off">
-            <option value="off">Off</option>
-            <option value="on">Manual releases only</option>
-            <option value="all">Manual and automatic releases</option>
-          </select>
-        </label>
-        <p id="release-notes-error" class="connection-status" role="status"></p>
+
       </div>
     </div>
   </dialog>

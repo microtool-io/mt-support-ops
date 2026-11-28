@@ -83,9 +83,9 @@ test('manual release route survives simultaneous clicks and process loss after H
   const post = path => fetch(origin + '/api/infeed/' + path, { method: 'POST', headers: { Origin: origin } });
   const snapshot = async () => (await fetch(origin + '/api/infeed')).json();
   assert.equal((await snapshot()).notesEnabled, false);
-  assert.equal((await post('tickets/13/release')).status, 200);
-  assert.equal((await post('notes/on')).status, 200);
-  assert.equal((await post('tickets/13/release')).status, 200);
+  assert.equal((await post('tickets/13/release')).status, 503);
+  assert.equal((await snapshot()).tickets.find(t => t.id === '13').state, 'held');
+  assert.equal((await post('enabled/on')).status, 200);
   const clicks = await Promise.all([post('tickets/12/release'), post('tickets/12/release')]);
   assert.deepEqual(clicks.map(r => r.status), [200, 200]);
   await sent;
@@ -128,7 +128,7 @@ test('uncertain manual release stays read-only across incomplete, missing and du
     const id = url.pathname.split('/').pop();
     return Response.json({ id, properties: { hs_note_body: body }, associations: { tickets: { results: [{ id: '12' }] } } });
   }, () => time);
-  await feed.notes.configure(true);
+  await feed.configure('enabled', true);
   db.prepare('INSERT INTO responder_tickets VALUES (?,?,?,?)').run('12', '2', 1, 'held');
   feed.release('12');
   const status = () => feed.snapshot().tickets[0].note;
@@ -148,7 +148,7 @@ test('uncertain manual release stays read-only across incomplete, missing and du
   }
 });
 
-test('disabled delivery pauses work and a definitive permission refusal can recover', async t => {
+test('a definitive permission refusal stays visible and recovers when the same key regains access', async t => {
   const db = new DatabaseSync(':memory:');
   t.after(() => db.close());
   let time = 1, requests = 0, posts = 0, body;
@@ -166,19 +166,42 @@ test('disabled delivery pauses work and a definitive permission refusal can reco
     if (url.pathname.endsWith('/associations/notes')) return Response.json({ results: [{ toObjectId: 77 }] });
     return Response.json({ id: '77', properties: { hs_note_body: body }, associations: { tickets: { results: [{ id: '12' }] } } });
   }, () => time);
-  await feed.notes.configure(true);
+  await feed.configure('enabled', true);
   db.prepare('INSERT INTO responder_tickets VALUES (?,?,?,?)').run('12', '2', 1, 'held');
   feed.release('12');
   await feed.notes.work();
   assert.equal(feed.snapshot().tickets[0].note, 'permission');
-  await feed.notes.configure(false);
   time += 60000;
-  const previous = requests;
-  await feed.notes.work();
-  assert.equal(requests, previous);
-  await feed.notes.configure(true);
   await feed.notes.work();
   assert.equal(feed.snapshot().tickets[0].note, 'added');
   assert.equal(db.prepare('SELECT note FROM release_notes').get().note, '77');
   assert.equal(posts, 2);
+});
+
+test('read-only upgrade requires activation and never adds jobs to earlier releases', async t => {
+  const db = new DatabaseSync(':memory:');
+  t.after(() => db.close());
+  db.exec(`CREATE TABLE responder_settings(at INTEGER, enabled INTEGER, hold INTEGER);
+    INSERT INTO responder_settings VALUES (1,1,0);
+    CREATE TABLE responder_tickets(id TEXT PRIMARY KEY, thread TEXT, arrived INTEGER, state TEXT);
+    INSERT INTO responder_tickets VALUES ('11','1',2,'automatic')`);
+  const feed = createInfeed(db, 'synthetic', async () => Response.json({ portalId: 123 }), () => 100);
+  assert.equal(feed.snapshot().enabled, false);
+  await feed.configure('enabled', true);
+  assert.equal(feed.snapshot().automaticNotes, true);
+  feed.release('11');
+  assert.equal(feed.snapshot().tickets[0].note, undefined);
+});
+
+test('an Off request during account verification cancels activation', async t => {
+  const db = new DatabaseSync(':memory:');
+  t.after(() => db.close());
+  let respond;
+  const feed = createInfeed(db, 'synthetic', () => new Promise(resolve => { respond = resolve; }));
+  const enabling = feed.configure('enabled', true);
+  await feed.configure('enabled', false);
+  respond(Response.json({ portalId: 123 }));
+  await assert.rejects(enabling, /superseded/);
+  assert.equal(feed.snapshot().enabled, false);
+  assert.equal(feed.snapshot().notesEnabled, false);
 });
