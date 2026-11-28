@@ -14,13 +14,24 @@ import { createInfeed } from '../src/infeed.js';
 
 test('manual release route survives simultaneous clicks and process loss after HubSpot accepts the note', { timeout: 20000 }, async t => {
   const directory = await mkdtemp(join(tmpdir(), 'mt-note-test-'));
-  t.after(() => rm(directory, { recursive: true, force: true }));
+  let server, exit;
+  async function stop() {
+    if (server && server.exitCode === null && server.signalCode === null) server.kill('SIGKILL');
+    if (exit) await exit;
+  }
+  t.after(async () => {
+    await stop();
+    await rm(directory, { recursive: true, force: true });
+  });
   const db = new DatabaseSync(join(directory, 'areas.sqlite'));
-  createInfeed(db, 'synthetic');
-  const seed = db.prepare('INSERT INTO responder_tickets VALUES (?, ?, 1, ?)');
-  seed.run('12', '2', 'held');
-  seed.run('13', '3', 'held');
-  db.close();
+  try {
+    createInfeed(db, 'synthetic');
+    const seed = db.prepare('INSERT INTO responder_tickets VALUES (?, ?, 1, ?)');
+    seed.run('12', '2', 'held');
+    seed.run('13', '3', 'held');
+  } finally {
+    db.close();
+  }
 
   const stored = [];
   let accepted;
@@ -52,12 +63,6 @@ test('manual release route survives simultaneous clicks and process loss after H
   await once(crm, 'listening');
   t.after(() => { crm.closeAllConnections(); crm.close(); });
 
-  let server, exit;
-  async function stop() {
-    if (server && server.exitCode === null && server.signalCode === null) server.kill('SIGKILL');
-    if (exit) await exit;
-  }
-  t.after(stop);
   async function start() {
     const upstream = 'http://127.0.0.1:' + crm.address().port;
     const shim = `const original=fetch; globalThis.fetch=(input,opts)=>{
